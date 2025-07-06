@@ -98,6 +98,17 @@
             stroke: #ff0040;
         }
 
+        .like-count {
+            position: absolute;
+            bottom: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+        }
+
         .video-info {
             display: none;
         }
@@ -191,6 +202,16 @@
             pointer-events: none;
             backdrop-filter: blur(10px);
         }
+
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 18px;
+            z-index: 1000;
+        }
     </style>
 </head>
 <body>
@@ -198,86 +219,111 @@
         Scroll • Click video to play/pause • Click heart to like
     </div>
 
-    <div class="main-container" id="mainContainer">
-        <!-- Video 1 -->
-        <div class="video-container">
-            <div class="video-wrapper">
-                <video class="video-player" id="video1" muted>
-                    <source src="static/videos/testvid1.mp4" type="video/mp4">
-                    Your browser does not support the video tag.
-                </video>
-                
-                <div class="play-pause-overlay" id="overlay1">
-                    <svg viewBox="0 0 24 24" id="playIcon1" style="display: none;">
-                        <path d="M8 5v14l11-7z"/>
-                    </svg>
-                    <svg viewBox="0 0 24 24" id="pauseIcon1">
-                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
-                    </svg>
-                </div>
-                
-                <div class="video-controls">
-                    <button class="control-btn like-btn" onclick="toggleLike(1)">
-                        <svg viewBox="0 0 24 24">
-                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                        </svg>
-                    </button>
-                </div>
-                
-                <div class="video-info">
-                    <div class="video-title">Test Video 1</div>
-                    <div class="video-description">This is the first test video for our player.</div>
-                </div>
-            </div>
-        </div>
+    <div class="loading" id="loading">Loading videos...</div>
 
-        <!-- Video 2 -->
-        <div class="video-container">
-            <div class="video-wrapper">
-                <video class="video-player" id="video2" muted>
-                    <source src="static/ads/testad1.mp4" type="video/mp4">
-                    Your browser does not support the video tag.
-                </video>
-                
-                <div class="ad-indicator">Ad</div>
-                
-                <div class="play-pause-overlay" id="overlay2">
-                    <svg viewBox="0 0 24 24" id="playIcon2" style="display: none;">
-                        <path d="M8 5v14l11-7z"/>
-                    </svg>
-                    <svg viewBox="0 0 24 24" id="pauseIcon2">
-                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
-                    </svg>
-                </div>
-                
-                <div class="video-controls">
-                    <button class="control-btn like-btn" onclick="toggleLike(2)">
-                        <svg viewBox="0 0 24 24">
-                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                        </svg>
-                    </button>
-                </div>
-                
-                <div class="video-info">
-                    <div class="video-title">Test Video 2 (Advertisement)</div>
-                    <div class="video-description">This is a test advertisement video.</div>
-                </div>
-            </div>
-        </div>
+    <div class="main-container" id="mainContainer">
+        <!-- Videos will be loaded dynamically -->
     </div>
 
     <script>
         let currentVideo = 1;
         let likedVideos = new Set();
+        let userId = null;
+        let videos = {};
+        let videoData = [];
         
-        // Video elements
-        const videos = {
-            1: document.getElementById('video1'),
-            2: document.getElementById('video2')
-        };
+        // Get user ID from backend
+        async function getUserId() {
+            try {
+                const response = await fetch('/api/get_user_id');
+                const data = await response.json();
+                userId = data.user_id;
+                console.log('User ID:', userId);
+            } catch (error) {
+                console.error('Error getting user ID:', error);
+            }
+        }
 
-        // Initialize
-        function init() {
+        // Load videos from backend
+        async function loadVideos() {
+            try {
+                const response = await fetch('/api/videos');
+                const data = await response.json();
+                videoData = data;
+                
+                // Create video elements
+                const container = document.getElementById('mainContainer');
+                container.innerHTML = '';
+                
+                data.forEach((video, index) => {
+                    const videoContainer = createVideoElement(video, index + 1);
+                    container.appendChild(videoContainer);
+                });
+                
+                // Hide loading
+                document.getElementById('loading').style.display = 'none';
+                
+                // Initialize video functionality
+                initializeVideos();
+                
+            } catch (error) {
+                console.error('Error loading videos:', error);
+                document.getElementById('loading').textContent = 'Error loading videos';
+            }
+        }
+
+        // Create video element
+        function createVideoElement(videoInfo, index) {
+            const container = document.createElement('div');
+            container.className = 'video-container';
+            
+            const videoPath = `/${videoInfo.filename}`;
+            
+            container.innerHTML = `
+                <div class="video-wrapper">
+                    <video class="video-player" id="video${index}" muted>
+                        <source src="${videoPath}" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                    
+                    ${videoInfo.is_ad ? '<div class="ad-indicator">Ad</div>' : ''}
+                    
+                    <div class="play-pause-overlay" id="overlay${index}">
+                        <svg viewBox="0 0 24 24" id="playIcon${index}" style="display: none;">
+                            <path d="M8 5v14l11-7z"/>
+                        </svg>
+                        <svg viewBox="0 0 24 24" id="pauseIcon${index}">
+                            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                        </svg>
+                    </div>
+                    
+                    <div class="video-controls">
+                        <button class="control-btn like-btn" onclick="toggleLike(${videoInfo.id}, ${index})">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                            </svg>
+                            <div class="like-count" id="likeCount${index}">${videoInfo.total_likes}</div>
+                        </button>
+                    </div>
+                    
+                    <div class="video-info">
+                        <div class="video-title">${videoInfo.filename}</div>
+                        <div class="video-description">${videoInfo.is_ad ? 'Advertisement' : 'Video'}</div>
+                    </div>
+                </div>
+            `;
+            
+            return container;
+        }
+
+        // Initialize video functionality
+        function initializeVideos() {
+            // Get all video elements
+            const videoElements = document.querySelectorAll('.video-player');
+            videoElements.forEach((video, index) => {
+                videos[index + 1] = video;
+            });
+
             // Set up intersection observer for auto-play
             const observer = new IntersectionObserver((entries) => {
                 entries.forEach(entry => {
@@ -314,12 +360,10 @@
                     
                     if (video.paused) {
                         video.play();
-                        // Show pause icon (two bars - indicating video is now playing)
                         playIcon.style.display = 'none';
                         pauseIcon.style.display = 'block';
                     } else {
                         video.pause();
-                        // Show play icon (triangle - indicating video is now paused)
                         playIcon.style.display = 'block';
                         pauseIcon.style.display = 'none';
                     }
@@ -336,22 +380,47 @@
                 });
             });
 
-            // Start with first video
-            videos[1].play();
+            // Start with first video if available
+            if (videos[1]) {
+                videos[1].play();
+            }
         }
 
-        // Like functionality
-        function toggleLike(videoId) {
-            const button = document.querySelector(`[onclick="toggleLike(${videoId})"]`);
-            
-            if (likedVideos.has(videoId)) {
-                // Unlike
-                likedVideos.delete(videoId);
-                button.classList.remove('liked');
-            } else {
-                // Like
-                likedVideos.add(videoId);
-                button.classList.add('liked');
+        // Like functionality - now connects to backend
+        async function toggleLike(videoId, displayIndex) {
+            try {
+                const response = await fetch('/api/like', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        video_id: videoId
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    const button = document.querySelector(`[onclick="toggleLike(${videoId}, ${displayIndex})"]`);
+                    const likeCount = document.getElementById(`likeCount${displayIndex}`);
+                    
+                    if (data.liked) {
+                        likedVideos.add(videoId);
+                        button.classList.add('liked');
+                    } else {
+                        likedVideos.delete(videoId);
+                        button.classList.remove('liked');
+                    }
+                    
+                    // Update like count
+                    likeCount.textContent = data.total_likes;
+                } else {
+                    console.error('Error toggling like:', data.error);
+                }
+            } catch (error) {
+                console.error('Error toggling like:', error);
             }
         }
 
@@ -376,12 +445,15 @@
             } else if (e.key === ' ') {
                 e.preventDefault();
                 const video = videos[currentVideo];
-                video.click();
+                if (video) video.click();
             }
         });
 
         // Initialize when page loads
-        document.addEventListener('DOMContentLoaded', init);
+        document.addEventListener('DOMContentLoaded', async () => {
+            await getUserId();
+            await loadVideos();
+        });
     </script>
 </body>
 </html>
