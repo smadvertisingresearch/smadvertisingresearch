@@ -1,0 +1,2 @@
+# Lists python packages required for the project
+# (For those editing this file, aka Sophie and Claire)
