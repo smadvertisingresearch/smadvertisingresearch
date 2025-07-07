@@ -127,17 +127,49 @@
             stroke: #ff0040;
         }
 
-        .ad-indicator {
+        .ad-link {
             position: absolute;
             bottom: 13px;
             left: 13px;
-            background: rgba(255, 193, 7, 0.9);
+            right: 65px;
+            background: #FFD700;
             color: #000;
-            padding: 3px 7px;
-            border-radius: 4px;
-            font-size: 11px;
-            font-weight: bold;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            text-decoration: none;
             z-index: 10;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            border: 2px solid #FFD700;
+        }
+
+        .ad-link:hover {
+            background: #FFC700;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .ad-indicator-inline {
+            background: #000;
+            color: #FFD700;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .arrow-icon {
+            width: 16px;
+            height: 16px;
+            fill: #000;
+            flex-shrink: 0;
         }
 
         .main-container {
@@ -193,22 +225,6 @@
             fill: white;
         }
 
-        .navigation-hint {
-            position: fixed;
-            top: 18px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(255, 255, 255, 0.2);
-            color: rgba(255, 255, 255, 0.9);
-            padding: 9px 14px;
-            border-radius: 8px;
-            font-size: 11px;
-            z-index: 100;
-            text-align: center;
-            pointer-events: none;
-            backdrop-filter: blur(10px);
-        }
-
         .loading {
             position: fixed;
             top: 50%;
@@ -217,6 +233,132 @@
             color: white;
             font-size: 16px;
             z-index: 1000;
+        }
+
+        /* Popup styles */
+        .popup-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            backdrop-filter: blur(5px);
+        }
+
+        .popup {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+            color: white;
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .popup h2 {
+            margin-bottom: 20px;
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .popup p {
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 25px;
+        }
+
+        .popup-button {
+            background: white;
+            color: #000;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            font-family: 'Lato', sans-serif;
+        }
+
+        .popup-button:hover {
+            background: #f0f0f0;
+            transform: translateY(-2px);
+        }
+
+        .small-popup {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            z-index: 1500;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .end-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: white;
+            text-align: center;
+            padding: 30px;
+            background: #333;
+            border-radius: 12px;
+        }
+
+        .end-screen h3 {
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+
+        .end-screen p {
+            margin-bottom: 30px;
+        }
+
+        .research-notice {
+            position: absolute;
+            top: 13px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.2);
+            color: #ccc;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            z-index: 10;
+            backdrop-filter: blur(10px);
+            text-align: center;
+        }
+
+        .frozen {
+            pointer-events: none;
+            overflow: hidden;
         }
 
         /* Hidden elements */
@@ -228,8 +370,22 @@
     </style>
 </head>
 <body>
-    <div class="navigation-hint">
-        Click heart to like • Click video to play/pause • Click speaker to toggle audio
+    <!-- Initial instructions popup -->
+    <div class="popup-overlay" id="instructionsPopup">
+        <div class="popup">
+            <h2>Welcome!</h2>
+            <p>Scroll through the videos like how you would normally do on short-form media platforms. Click the heart button to like any videos or ads that you find interesting or persuasive. Click the video to play or pause. Click the speaker button to unmute or mute audio. The recommended scrolling time is 10 minutes, and the site will automatically cut you off after 12 minutes.</p>
+            <button class="popup-button" onclick="startSession()">I understand</button>
+        </div>
+    </div>
+
+    <!-- Time up popup -->
+    <div class="popup-overlay" id="timeUpPopup" style="display: none;">
+        <div class="popup">
+            <h2>Time is up!</h2>
+            <p>Please now complete these post-study questions.</p>
+            <a href="https://google.com" target="_blank" class="popup-button">Click here</a>
+        </div>
     </div>
 
     <div class="loading" id="loading">Loading videos...</div>
@@ -241,38 +397,94 @@
     <script>
         let currentVideo = 1;
         let likedVideos = new Set();
-        let userId = null;
+        let userId = Math.random().toString(36).substr(2, 9); // Generate simple user ID
         let videos = {};
         let videoData = [];
-        let userPreferredAudioState = false; // Track user's global audio preference
+        let userPreferredAudioState = false;
+        let sessionStarted = false;
+        let timerInterval = null;
+        let timeRemaining = 12 * 60; // 12 minutes in seconds
+        let twoMinuteWarningShown = false;
+        let allVideosScrolled = false;
         
-        // Get user ID from backend
-        async function getUserId() {
-            try {
-                const response = await fetch('/api/get_user_id');
-                const data = await response.json();
-                userId = data.user_id;
-                console.log('User ID:', userId);
-            } catch (error) {
-                console.error('Error getting user ID:', error);
-            }
+        // Static video data - matches your file structure
+        const staticVideoData = [
+            { id: 1, filename: 'static/ads/testad1.mp4', is_ad: true },
+            { id: 2, filename: 'static/videos/vid1.mp4', is_ad: false },
+            { id: 3, filename: 'static/videos/vid2.mp4', is_ad: false },
+            { id: 4, filename: 'static/videos/vid3.mp4', is_ad: false },
+            { id: 5, filename: 'static/videos/vid4.mp4', is_ad: false },
+            { id: 6, filename: 'static/videos/vid5.mp4', is_ad: false },
+            { id: 7, filename: 'static/videos/vid6.mp4', is_ad: false },
+            { id: 8, filename: 'static/videos/vid7.mp4', is_ad: false },
+            { id: 9, filename: 'static/videos/vid8.mp4', is_ad: false },
+            { id: 10, filename: 'static/videos/vid9.mp4', is_ad: false },
+            { id: 11, filename: 'static/videos/vid10.mp4', is_ad: false }
+        ];
+        
+        // Start session and timer
+        function startSession() {
+            sessionStarted = true;
+            document.getElementById('instructionsPopup').style.display = 'none';
+            
+            // Start 12-minute timer
+            timerInterval = setInterval(() => {
+                timeRemaining--;
+                
+                // Show 2-minute warning
+                if (timeRemaining === 2 * 60 && !twoMinuteWarningShown) {
+                    showTwoMinuteWarning();
+                    twoMinuteWarningShown = true;
+                }
+                
+                // Time up
+                if (timeRemaining <= 0) {
+                    clearInterval(timerInterval);
+                    freezeAndShowTimeUp();
+                }
+            }, 1000);
         }
 
-        // Load videos from backend
-        async function loadVideos() {
+        // Show 2-minute warning
+        function showTwoMinuteWarning() {
+            const warning = document.createElement('div');
+            warning.className = 'small-popup';
+            warning.textContent = '2 minutes remaining';
+            document.body.appendChild(warning);
+            
+            setTimeout(() => {
+                warning.remove();
+            }, 5000);
+        }
+
+        // Freeze interface and show time up popup
+        function freezeAndShowTimeUp() {
+            document.body.classList.add('frozen');
+            document.getElementById('timeUpPopup').style.display = 'flex';
+            
+            // Pause all videos
+            Object.values(videos).forEach(video => {
+                video.pause();
+            });
+        }
+
+        // Load videos (now using static data)
+        function loadVideos() {
             try {
-                const response = await fetch('/api/videos');
-                const data = await response.json();
-                videoData = data;
+                videoData = staticVideoData;
                 
                 // Create video elements
                 const container = document.getElementById('mainContainer');
                 container.innerHTML = '';
                 
-                data.forEach((video, index) => {
+                videoData.forEach((video, index) => {
                     const videoContainer = createVideoElement(video, index + 1);
                     container.appendChild(videoContainer);
                 });
+                
+                // Add end screen
+                const endScreen = createEndScreen();
+                container.appendChild(endScreen);
                 
                 // Hide loading
                 document.getElementById('loading').style.display = 'none';
@@ -286,16 +498,48 @@
             }
         }
 
+        // Create end screen
+        function createEndScreen() {
+            const container = document.createElement('div');
+            container.className = 'video-container';
+            container.id = 'endScreen';
+            
+            container.innerHTML = `
+                <div class="video-wrapper">
+                    <div class="end-screen">
+                        <h3>You have finished scrolling all the videos!</h3>
+                        <p>Please now complete these post-study questions.</p>
+                        <a href="https://google.com" target="_blank" class="popup-button">Click here</a>
+                    </div>
+                </div>
+            `;
+            
+            return container;
+        }
+
         // Create video element
         function createVideoElement(videoInfo, index) {
             const container = document.createElement('div');
             container.className = 'video-container';
             
-            const videoPath = `/${videoInfo.filename}`;
+            const videoPath = videoInfo.filename;
+            
+            const adLinkHtml = videoInfo.is_ad ? `
+                <a href="https://google.com" target="_blank" class="ad-link">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="ad-indicator-inline">Ad</span>
+                        Visit website to learn more
+                    </div>
+                    <svg class="arrow-icon" viewBox="0 0 24 24">
+                        <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+                    </svg>
+                </a>
+            ` : '';
             
             container.innerHTML = `
                 <div class="video-wrapper">
-                    <video class="video-player" id="video${index}" ${userPreferredAudioState ? '' : 'muted'}>
+                    <div class="research-notice">This site is for research purposes only</div>
+                    <video class="video-player" id="video${index}" ${userPreferredAudioState ? '' : 'muted'} preload="metadata">
                         <source src="${videoPath}" type="video/mp4">
                         Your browser does not support the video tag.
                     </video>
@@ -309,7 +553,7 @@
                         </svg>
                     </button>
                     
-                    ${videoInfo.is_ad ? '<div class="ad-indicator">Ad</div>' : ''}
+                    ${adLinkHtml}
                     
                     <div class="play-pause-overlay" id="overlay${index}">
                         <svg viewBox="0 0 24 24" id="playIcon${index}" style="display: none;">
@@ -333,13 +577,12 @@
             return container;
         }
 
-        // Toggle audio function - now updates global preference and applies to all videos
+        // Toggle audio function
         function toggleAudio(videoIndex) {
             const video = document.getElementById(`video${videoIndex}`);
             const mutedIcon = document.getElementById(`mutedIcon${videoIndex}`);
             const unmutedIcon = document.getElementById(`unmutedIcon${videoIndex}`);
             
-            // Toggle the current video's audio state
             if (video.muted) {
                 video.muted = false;
                 mutedIcon.style.display = 'none';
@@ -352,7 +595,6 @@
                 userPreferredAudioState = false;
             }
             
-            // Apply the audio preference to all videos
             updateAllVideosAudioState();
         }
 
@@ -378,18 +620,41 @@
 
         // Initialize video functionality
         function initializeVideos() {
-            // Get all video elements
             const videoElements = document.querySelectorAll('.video-player');
             videoElements.forEach((video, index) => {
                 videos[index + 1] = video;
+                
+                // Add error handling for videos that fail to load
+                video.addEventListener('error', (e) => {
+                    console.error(`Video ${index + 1} failed to load:`, e);
+                    // You could show a placeholder or skip this video
+                });
+                
+                // Add loadedmetadata event to ensure video is ready
+                video.addEventListener('loadedmetadata', () => {
+                    console.log(`Video ${index + 1} loaded successfully`);
+                });
             });
 
             // Set up intersection observer for auto-play
             const observer = new IntersectionObserver((entries) => {
                 entries.forEach(entry => {
+                    if (entry.target.id === 'endScreen') {
+                        if (entry.isIntersecting && !allVideosScrolled) {
+                            allVideosScrolled = true;
+                            // Stop timer if still running
+                            if (timerInterval) {
+                                clearInterval(timerInterval);
+                            }
+                        }
+                        return;
+                    }
+                    
                     const video = entry.target.querySelector('.video-player');
                     if (entry.isIntersecting) {
-                        video.play();
+                        video.play().catch(e => {
+                            console.error('Error playing video:', e);
+                        });
                         currentVideo = parseInt(video.id.replace('video', ''));
                     } else {
                         video.pause();
@@ -399,7 +664,7 @@
                 threshold: 0.7
             });
 
-            // Observe all video containers
+            // Observe all video containers and end screen
             document.querySelectorAll('.video-container').forEach(container => {
                 observer.observe(container);
             });
@@ -408,25 +673,29 @@
             Object.values(videos).forEach((video, index) => {
                 const videoIndex = index + 1;
                 
-                // Auto-replay when video ends
                 video.addEventListener('ended', () => {
                     video.currentTime = 0;
-                    video.play();
+                    video.play().catch(e => {
+                        console.error('Error restarting video:', e);
+                    });
                 });
 
-                // Click to play/pause
                 video.addEventListener('click', () => {
-                    togglePlayPause(videoIndex);
+                    if (sessionStarted) {
+                        togglePlayPause(videoIndex);
+                    }
                 });
             });
 
-            // Start with first video if available
+            // Start first video
             if (videos[1]) {
-                videos[1].play();
+                videos[1].play().catch(e => {
+                    console.error('Error starting first video:', e);
+                });
             }
         }
 
-        // Separate function for play/pause toggle
+        // Toggle play/pause
         function togglePlayPause(videoIndex) {
             const video = videos[videoIndex];
             const overlay = document.getElementById(`overlay${videoIndex}`);
@@ -434,7 +703,9 @@
             const pauseIcon = document.getElementById(`pauseIcon${videoIndex}`);
             
             if (video.paused) {
-                video.play();
+                video.play().catch(e => {
+                    console.error('Error playing video:', e);
+                });
                 playIcon.style.display = 'none';
                 pauseIcon.style.display = 'block';
             } else {
@@ -443,7 +714,6 @@
                 pauseIcon.style.display = 'none';
             }
             
-            // Show overlay with animation
             overlay.classList.add('show');
             setTimeout(() => {
                 overlay.classList.add('shrink');
@@ -454,56 +724,49 @@
             }, 800);
         }
 
-        // Like functionality
-        async function toggleLike(videoId, displayIndex) {
-            try {
-                const response = await fetch('/api/like', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        user_id: userId,
-                        video_id: videoId
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok) {
-                    const button = document.querySelector(`[onclick="toggleLike(${videoId}, ${displayIndex})"]`);
-                    
-                    if (data.liked) {
-                        likedVideos.add(videoId);
-                        button.classList.add('liked');
-                    } else {
-                        likedVideos.delete(videoId);
-                        button.classList.remove('liked');
-                    }
-                } else {
-                    console.error('Error toggling like:', data.error);
-                }
-            } catch (error) {
-                console.error('Error toggling like:', error);
+        // Like functionality (now stores locally)
+        function toggleLike(videoId, displayIndex) {
+            if (!sessionStarted) return;
+            
+            const button = document.querySelector(`[onclick="toggleLike(${videoId}, ${displayIndex})"]`);
+            
+            if (likedVideos.has(videoId)) {
+                likedVideos.delete(videoId);
+                button.classList.remove('liked');
+                console.log(`Unliked video ${videoId}`);
+            } else {
+                likedVideos.add(videoId);
+                button.classList.add('liked');
+                console.log(`Liked video ${videoId}`);
             }
         }
 
         // Keyboard navigation
         document.addEventListener('keydown', (e) => {
+            if (!sessionStarted) return;
+            
             if (e.key === 'ArrowUp') {
                 e.preventDefault();
                 if (currentVideo > 1) {
-                    document.getElementById(`video${currentVideo - 1}`).parentElement.parentElement.scrollIntoView({
+                    const targetVideo = currentVideo - 1;
+                    document.getElementById(`video${targetVideo}`).parentElement.parentElement.scrollIntoView({
                         behavior: 'smooth',
-                        block: 'start'
+                        block: 'center'
                     });
                 }
             } else if (e.key === 'ArrowDown') {
                 e.preventDefault();
                 if (currentVideo < Object.keys(videos).length) {
-                    document.getElementById(`video${currentVideo + 1}`).parentElement.parentElement.scrollIntoView({
+                    const targetVideo = currentVideo + 1;
+                    document.getElementById(`video${targetVideo}`).parentElement.parentElement.scrollIntoView({
                         behavior: 'smooth',
-                        block: 'start'
+                        block: 'center'
+                    });
+                } else {
+                    // Scroll to end screen
+                    document.getElementById('endScreen').scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center'
                     });
                 }
             } else if (e.key === ' ') {
@@ -515,9 +778,8 @@
         });
 
         // Initialize when page loads
-        document.addEventListener('DOMContentLoaded', async () => {
-            await getUserId();
-            await loadVideos();
+        document.addEventListener('DOMContentLoaded', () => {
+            loadVideos();
         });
     </script>
 </body>
