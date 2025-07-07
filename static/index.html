@@ -35,8 +35,8 @@
 
         .video-wrapper {
             position: relative;
-            width: 400px;
-            height: 700px;
+            width: 360px;
+            height: 630px;
             background: #000;
             border-radius: 12px;
             overflow: hidden;
@@ -52,24 +52,24 @@
 
         .video-controls {
             position: absolute;
-            right: 15px;
+            right: 13px;
             top: 50%;
             transform: translateY(-50%);
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 18px;
             z-index: 10;
         }
 
         .audio-toggle {
             position: absolute;
-            top: 15px;
-            left: 15px;
+            bottom: 13px;
+            right: 13px;
             background: rgba(255, 255, 255, 0.2);
             border: none;
             border-radius: 50%;
-            width: 40px;
-            height: 40px;
+            width: 36px;
+            height: 36px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -85,8 +85,8 @@
         }
 
         .audio-toggle svg {
-            width: 20px;
-            height: 20px;
+            width: 18px;
+            height: 18px;
             fill: white;
         }
 
@@ -94,8 +94,8 @@
             background: rgba(255, 255, 255, 0.2);
             border: none;
             border-radius: 50%;
-            width: 50px;
-            height: 50px;
+            width: 45px;
+            height: 45px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -114,8 +114,8 @@
         }
 
         .like-btn svg {
-            width: 28px;
-            height: 28px;
+            width: 25px;
+            height: 25px;
             fill: none;
             stroke: white;
             stroke-width: 2;
@@ -127,27 +127,15 @@
             stroke: #ff0040;
         }
 
-        .video-info {
-            display: none;
-        }
-
-        .video-title {
-            display: none;
-        }
-
-        .video-description {
-            display: none;
-        }
-
         .ad-indicator {
             position: absolute;
-            bottom: 50px;
-            right: 15px;
+            bottom: 13px;
+            left: 13px;
             background: rgba(255, 193, 7, 0.9);
             color: #000;
-            padding: 4px 8px;
+            padding: 3px 7px;
             border-radius: 4px;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: bold;
             z-index: 10;
         }
@@ -176,8 +164,8 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%) scale(0.8);
-            width: 90px;
-            height: 90px;
+            width: 81px;
+            height: 81px;
             background: rgba(255, 255, 255, 0.2);
             border-radius: 50%;
             display: flex;
@@ -200,21 +188,21 @@
         }
 
         .play-pause-overlay svg {
-            width: 40px;
-            height: 40px;
+            width: 36px;
+            height: 36px;
             fill: white;
         }
 
         .navigation-hint {
             position: fixed;
-            top: 20px;
+            top: 18px;
             left: 50%;
             transform: translateX(-50%);
             background: rgba(255, 255, 255, 0.2);
             color: rgba(255, 255, 255, 0.9);
-            padding: 10px 16px;
+            padding: 9px 14px;
             border-radius: 8px;
-            font-size: 12px;
+            font-size: 11px;
             z-index: 100;
             text-align: center;
             pointer-events: none;
@@ -227,8 +215,15 @@
             left: 50%;
             transform: translate(-50%, -50%);
             color: white;
-            font-size: 18px;
+            font-size: 16px;
             z-index: 1000;
+        }
+
+        /* Hidden elements */
+        .video-info,
+        .video-title,
+        .video-description {
+            display: none;
         }
     </style>
 </head>
@@ -249,7 +244,7 @@
         let userId = null;
         let videos = {};
         let videoData = [];
-        let userPreferredAudioState = false; // Track user's audio preference
+        let userPreferredAudioState = false; // Track user's global audio preference
         
         // Get user ID from backend
         async function getUserId() {
@@ -332,34 +327,53 @@
                             </svg>
                         </button>
                     </div>
-                    
-                    <div class="video-info">
-                        <div class="video-title">${videoInfo.filename}</div>
-                        <div class="video-description">${videoInfo.is_ad ? 'Advertisement' : 'Video'}</div>
-                    </div>
                 </div>
             `;
             
             return container;
         }
 
-        // Toggle audio function
+        // Toggle audio function - now updates global preference and applies to all videos
         function toggleAudio(videoIndex) {
             const video = document.getElementById(`video${videoIndex}`);
             const mutedIcon = document.getElementById(`mutedIcon${videoIndex}`);
             const unmutedIcon = document.getElementById(`unmutedIcon${videoIndex}`);
             
+            // Toggle the current video's audio state
             if (video.muted) {
                 video.muted = false;
                 mutedIcon.style.display = 'none';
                 unmutedIcon.style.display = 'block';
-                userPreferredAudioState = true; // Update user preference
+                userPreferredAudioState = true;
             } else {
                 video.muted = true;
                 mutedIcon.style.display = 'block';
                 unmutedIcon.style.display = 'none';
-                userPreferredAudioState = false; // Update user preference
+                userPreferredAudioState = false;
             }
+            
+            // Apply the audio preference to all videos
+            updateAllVideosAudioState();
+        }
+
+        // Update all videos to match user's audio preference
+        function updateAllVideosAudioState() {
+            Object.values(videos).forEach((video, index) => {
+                const videoIndex = index + 1;
+                const mutedIcon = document.getElementById(`mutedIcon${videoIndex}`);
+                const unmutedIcon = document.getElementById(`unmutedIcon${videoIndex}`);
+                
+                if (mutedIcon && unmutedIcon) {
+                    video.muted = !userPreferredAudioState;
+                    if (userPreferredAudioState) {
+                        mutedIcon.style.display = 'none';
+                        unmutedIcon.style.display = 'block';
+                    } else {
+                        mutedIcon.style.display = 'block';
+                        unmutedIcon.style.display = 'none';
+                    }
+                }
+            });
         }
 
         // Initialize video functionality
@@ -390,39 +404,19 @@
                 observer.observe(container);
             });
 
-            // Add click listeners for play/pause
-            Object.values(videos).forEach(video => {
+            // Add event listeners for each video
+            Object.values(videos).forEach((video, index) => {
+                const videoIndex = index + 1;
+                
                 // Auto-replay when video ends
                 video.addEventListener('ended', () => {
                     video.currentTime = 0;
                     video.play();
                 });
 
+                // Click to play/pause
                 video.addEventListener('click', () => {
-                    const videoId = parseInt(video.id.replace('video', ''));
-                    const overlay = document.getElementById(`overlay${videoId}`);
-                    const playIcon = document.getElementById(`playIcon${videoId}`);
-                    const pauseIcon = document.getElementById(`pauseIcon${videoId}`);
-                    
-                    if (video.paused) {
-                        video.play();
-                        playIcon.style.display = 'none';
-                        pauseIcon.style.display = 'block';
-                    } else {
-                        video.pause();
-                        playIcon.style.display = 'block';
-                        pauseIcon.style.display = 'none';
-                    }
-                    
-                    // Show overlay with animation
-                    overlay.classList.add('show');
-                    setTimeout(() => {
-                        overlay.classList.add('shrink');
-                    }, 150);
-                    
-                    setTimeout(() => {
-                        overlay.classList.remove('show', 'shrink');
-                    }, 800);
+                    togglePlayPause(videoIndex);
                 });
             });
 
@@ -432,7 +426,35 @@
             }
         }
 
-        // Like functionality - now connects to backend
+        // Separate function for play/pause toggle
+        function togglePlayPause(videoIndex) {
+            const video = videos[videoIndex];
+            const overlay = document.getElementById(`overlay${videoIndex}`);
+            const playIcon = document.getElementById(`playIcon${videoIndex}`);
+            const pauseIcon = document.getElementById(`pauseIcon${videoIndex}`);
+            
+            if (video.paused) {
+                video.play();
+                playIcon.style.display = 'none';
+                pauseIcon.style.display = 'block';
+            } else {
+                video.pause();
+                playIcon.style.display = 'block';
+                pauseIcon.style.display = 'none';
+            }
+            
+            // Show overlay with animation
+            overlay.classList.add('show');
+            setTimeout(() => {
+                overlay.classList.add('shrink');
+            }, 150);
+            
+            setTimeout(() => {
+                overlay.classList.remove('show', 'shrink');
+            }, 800);
+        }
+
+        // Like functionality
         async function toggleLike(videoId, displayIndex) {
             try {
                 const response = await fetch('/api/like', {
@@ -450,7 +472,6 @@
                 
                 if (response.ok) {
                     const button = document.querySelector(`[onclick="toggleLike(${videoId}, ${displayIndex})"]`);
-                    const likeCount = document.getElementById(`likeCount${displayIndex}`);
                     
                     if (data.liked) {
                         likedVideos.add(videoId);
@@ -459,9 +480,6 @@
                         likedVideos.delete(videoId);
                         button.classList.remove('liked');
                     }
-                    
-                    // Update like count
-                    likeCount.textContent = data.total_likes;
                 } else {
                     console.error('Error toggling like:', data.error);
                 }
@@ -490,8 +508,9 @@
                 }
             } else if (e.key === ' ') {
                 e.preventDefault();
-                const video = videos[currentVideo];
-                if (video) video.click();
+                if (videos[currentVideo]) {
+                    togglePlayPause(currentVideo);
+                }
             }
         });
 

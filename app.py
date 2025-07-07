@@ -6,7 +6,7 @@ import json
 from datetime import datetime
 
 app = Flask(__name__)
-app.secret_key = 'rio_sophie_claire'
+app.secret_key = 'rio_sophie_claire_secure_key_2024'
 
 def init_db():
     conn = sqlite3.connect('likes.db')
@@ -37,6 +37,12 @@ def init_db():
     conn.commit()
     conn.close()
 
+def reset_database():
+    """Reset the database to start fresh"""
+    if os.path.exists('likes.db'):
+        os.remove('likes.db')
+    init_db()
+
 def load_videos():
     conn = sqlite3.connect('likes.db')
     cursor = conn.cursor()
@@ -55,11 +61,11 @@ def load_videos():
             if filename.endswith('.mp4'):
                 video_files.append(('ads/' + filename, 1))
     
-    # Insert videos into database
+    # Insert videos into database ONLY if they don't exist
     for filepath, is_ad in video_files:
         cursor.execute('''
-            INSERT OR IGNORE INTO records (filename, is_ad) 
-            VALUES (?, ?)
+            INSERT OR IGNORE INTO records (filename, is_ad, total_likes) 
+            VALUES (?, ?, 0)
         ''', (filepath, is_ad))
 
     conn.commit()
@@ -132,7 +138,7 @@ def toggle_like():
         # Unlike - remove the like
         cursor.execute('DELETE FROM user_likes WHERE user_id = ? AND video_id = ?', 
                        (user_id, video_id))
-        cursor.execute('UPDATE records SET total_likes = total_likes - 1 WHERE id = ?', 
+        cursor.execute('UPDATE records SET total_likes = total_likes - 1 WHERE id = ? AND total_likes > 0', 
                        (video_id,))
         liked = False
     else:
@@ -204,11 +210,14 @@ def admin():
             .video-item { padding: 10px; margin: 5px 0; background: #f9f9f9; border-radius: 3px; }
             .ad-video { background: #ffe6e6; }
             button { padding: 10px 20px; margin: 10px 0; cursor: pointer; }
+            .reset-btn { background: #ff4444; color: white; border: none; border-radius: 3px; }
+            .reset-btn:hover { background: #cc0000; }
         </style>
     </head>
     <body>
         <h1>Video Website Admin</h1>
         <button onclick="loadStats()">Refresh Stats</button>
+        <button class="reset-btn" onclick="resetStats()">Reset All Stats</button>
         
         <div class="stats" id="stats">
             Loading stats...
@@ -246,6 +255,17 @@ def admin():
                     });
             }
             
+            function resetStats() {
+                if (confirm('Are you sure you want to reset all stats? This will delete all likes and user data.')) {
+                    fetch('/api/reset', { method: 'POST' })
+                        .then(response => response.json())
+                        .then(data => {
+                            alert(data.message);
+                            loadStats();
+                        });
+                }
+            }
+            
             // Load stats on page load
             loadStats();
         </script>
@@ -253,10 +273,26 @@ def admin():
     </html>
     '''
 
+@app.route('/api/reset', methods=['POST'])
+def reset_stats():
+    """Reset all statistics"""
+    conn = sqlite3.connect('likes.db')
+    cursor = conn.cursor()
+    
+    # Clear all likes
+    cursor.execute('DELETE FROM user_likes')
+    cursor.execute('UPDATE records SET total_likes = 0')
+    
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'message': 'All statistics have been reset successfully'})
+
 if __name__ == '__main__':
     init_db()
     load_videos()
     print("Starting server...")
     print("Main site: http://localhost:8000")
     print("Admin panel: http://localhost:8000/admin")
+    print("To reset database completely, delete 'likes.db' file before running")
     app.run(debug=True, host='0.0.0.0', port=8000)
