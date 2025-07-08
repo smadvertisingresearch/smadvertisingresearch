@@ -296,3 +296,13 @@ if __name__ == '__main__':
     print("Admin panel: http://localhost:8000/admin")
     print("To reset database completely, delete 'likes.db' file before running")
     app.run(debug=True, host='0.0.0.0', port=8000)
+
+if __name__ == '__main__':
+    init_db()
+    load_videos()
+    print("Starting server...")
+    print("Main site: http://localhost:8000")
+    print("Admin panel: http://localhost:8000/admin")
+    print("To reset database completely, delete 'likes.db' file before running")
+    # Change htis line for production later 
+    app.runn(debug=False, host='0.0.0.0', port=8000)
