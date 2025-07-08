@@ -397,7 +397,7 @@
     <script>
         let currentVideo = 1;
         let likedVideos = new Set();
-        let userId = Math.random().toString(36).substr(2, 9); // Generate simple user ID
+        let userId = null;
         let videos = {};
         let videoData = [];
         let userPreferredAudioState = false;
@@ -407,20 +407,18 @@
         let twoMinuteWarningShown = false;
         let allVideosScrolled = false;
         
-        // Static video data - matches your file structure
-        const staticVideoData = [
-            { id: 1, filename: 'static/ads/testad1.mp4', is_ad: true },
-            { id: 2, filename: 'static/videos/vid1.mp4', is_ad: false },
-            { id: 3, filename: 'static/videos/vid2.mp4', is_ad: false },
-            { id: 4, filename: 'static/videos/vid3.mp4', is_ad: false },
-            { id: 5, filename: 'static/videos/vid4.mp4', is_ad: false },
-            { id: 6, filename: 'static/videos/vid5.mp4', is_ad: false },
-            { id: 7, filename: 'static/videos/vid6.mp4', is_ad: false },
-            { id: 8, filename: 'static/videos/vid7.mp4', is_ad: false },
-            { id: 9, filename: 'static/videos/vid8.mp4', is_ad: false },
-            { id: 10, filename: 'static/videos/vid9.mp4', is_ad: false },
-            { id: 11, filename: 'static/videos/vid10.mp4', is_ad: false }
-        ];
+        // Get user ID from server
+        async function getUserId() {
+            try {
+                const response = await fetch('/api/get_user_id');
+                const data = await response.json();
+                userId = data.user_id;
+                console.log('User ID:', userId);
+            } catch (error) {
+                console.error('Error getting user ID:', error);
+                userId = Math.random().toString(36).substr(2, 9); // Fallback
+            }
+        }
         
         // Start session and timer
         function startSession() {
@@ -468,10 +466,11 @@
             });
         }
 
-        // Load videos (now using static data)
-        function loadVideos() {
+        // Load videos from server
+        async function loadVideos() {
             try {
-                videoData = staticVideoData;
+                const response = await fetch('/api/videos');
+                videoData = await response.json();
                 
                 // Create video elements
                 const container = document.getElementById('mainContainer');
@@ -517,15 +516,34 @@
             return container;
         }
 
+        // Track ad clicks
+        async function trackAdClick(videoId) {
+            try {
+                await fetch('/api/ad_click', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        video_id: videoId
+                    })
+                });
+                console.log('Ad click tracked for video:', videoId);
+            } catch (error) {
+                console.error('Error tracking ad click:', error);
+            }
+        }
+
         // Create video element
         function createVideoElement(videoInfo, index) {
             const container = document.createElement('div');
             container.className = 'video-container';
             
-            const videoPath = videoInfo.filename;
+            const videoPath = videoInfo.filename.startsWith('static/') ? videoInfo.filename : `static/${videoInfo.filename}`;
             
             const adLinkHtml = videoInfo.is_ad ? `
-                <a href="https://google.com" target="_blank" class="ad-link">
+                <a href="https://google.com" target="_blank" class="ad-link" onclick="trackAdClick(${videoInfo.id})">
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <span class="ad-indicator-inline">Ad</span>
                         Visit website to learn more
@@ -627,7 +645,6 @@
                 // Add error handling for videos that fail to load
                 video.addEventListener('error', (e) => {
                     console.error(`Video ${index + 1} failed to load:`, e);
-                    // You could show a placeholder or skip this video
                 });
                 
                 // Add loadedmetadata event to ensure video is ready
@@ -724,20 +741,37 @@
             }, 800);
         }
 
-        // Like functionality (now stores locally)
-        function toggleLike(videoId, displayIndex) {
+        // Like functionality - now connects to backend
+        async function toggleLike(videoId, displayIndex) {
             if (!sessionStarted) return;
             
-            const button = document.querySelector(`[onclick="toggleLike(${videoId}, ${displayIndex})"]`);
-            
-            if (likedVideos.has(videoId)) {
-                likedVideos.delete(videoId);
-                button.classList.remove('liked');
-                console.log(`Unliked video ${videoId}`);
-            } else {
-                likedVideos.add(videoId);
-                button.classList.add('liked');
-                console.log(`Liked video ${videoId}`);
+            try {
+                const response = await fetch('/api/like', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        video_id: videoId
+                    })
+                });
+                
+                const data = await response.json();
+                const button = document.querySelector(`[onclick="toggleLike(${videoId}, ${displayIndex})"]`);
+                
+                if (data.liked) {
+                    likedVideos.add(videoId);
+                    button.classList.add('liked');
+                    console.log(`Liked video ${videoId}`);
+                } else {
+                    likedVideos.delete(videoId);
+                    button.classList.remove('liked');
+                    console.log(`Unliked video ${videoId}`);
+                }
+                
+            } catch (error) {
+                console.error('Error toggling like:', error);
             }
         }
 
@@ -778,8 +812,9 @@
         });
 
         // Initialize when page loads
-        document.addEventListener('DOMContentLoaded', () => {
-            loadVideos();
+        document.addEventListener('DOMContentLoaded', async () => {
+            await getUserId();
+            await loadVideos();
         });
     </script>
 </body>
