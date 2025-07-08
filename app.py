@@ -34,53 +34,37 @@ def init_db():
         )
     ''')
 
-    # Create ad_clicks table for tracking ad clicks
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS ad_clicks(
-            id INTEGER PRIMARY KEY,
-            user_id TEXT,
-            video_id INTEGER,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(video_id) REFERENCES records(id)
-        )
-    ''')
-
     conn.commit()
     conn.close()
 
-def reset_database():
-    """Reset the database to start fresh"""
-    if os.path.exists('likes.db'):
-        os.remove('likes.db')
-    init_db()
-
 def load_videos():
+    """Load videos from filesystem into database"""
     conn = sqlite3.connect('likes.db')
     cursor = conn.cursor()
 
     video_files = []
 
-    # Load regular videos - check if files actually exist
+    # Load regular videos
     videos_dir = 'static/videos'
     if os.path.exists(videos_dir):
         for filename in os.listdir(videos_dir):
             if filename.endswith('.mp4'):
                 filepath = os.path.join(videos_dir, filename)
-                if os.path.isfile(filepath):  # Verify file exists
+                if os.path.isfile(filepath):
                     video_files.append(('videos/' + filename, 0))
                     print(f"Found video: {filename}")
 
-    # Load ads - check if files actually exist
+    # Load ads
     ads_dir = 'static/ads'
     if os.path.exists(ads_dir):
         for filename in os.listdir(ads_dir):
             if filename.endswith('.mp4'):
                 filepath = os.path.join(ads_dir, filename)
-                if os.path.isfile(filepath):  # Verify file exists
+                if os.path.isfile(filepath):
                     video_files.append(('ads/' + filename, 1))
                     print(f"Found ad: {filename}")
     
-    # Clear existing records to avoid duplicates and non-existent files
+    # Clear existing records to avoid duplicates
     cursor.execute('DELETE FROM records')
     
     # Insert only existing videos into database
@@ -210,55 +194,6 @@ def toggle_like():
         print(f"Error in toggle_like: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/ad_click', methods=['POST'])
-def track_ad_click():
-    try:
-        data = request.get_json()
-        user_id = data.get('user_id')
-        video_id = data.get('video_id')
-        
-        print(f"Ad click - User: {user_id}, Video: {video_id}")
-        
-        # If no user_id provided, get it from session
-        if not user_id:
-            if 'user_id' not in session:
-                session['user_id'] = str(uuid.uuid4())
-            user_id = session['user_id']
-        
-        if not video_id:
-            return jsonify({'error': 'Missing video_id'}), 400
-        
-        conn = sqlite3.connect('likes.db')
-        cursor = conn.cursor()
-        
-        # Verify this is actually an ad
-        cursor.execute('SELECT is_ad FROM records WHERE id = ?', (video_id,))
-        result = cursor.fetchone()
-        
-        if not result:
-            conn.close()
-            return jsonify({'error': 'Video not found'}), 404
-        
-        if not result[0]:
-            conn.close()
-            return jsonify({'error': 'Not an advertisement'}), 400
-        
-        # Track the ad click
-        cursor.execute('''
-            INSERT INTO ad_clicks (user_id, video_id) 
-            VALUES (?, ?)
-        ''', (user_id, video_id))
-        
-        conn.commit()
-        conn.close()
-        
-        print(f"Ad click tracked for video {video_id}")
-        return jsonify({'success': True, 'message': 'Ad click tracked'})
-        
-    except Exception as e:
-        print(f"Error in track_ad_click: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
 @app.route('/api/stats')
 def get_stats():
     conn = sqlite3.connect('likes.db')
@@ -276,24 +211,10 @@ def get_stats():
     ''')
     unique_users_liked = cursor.fetchone()[0] or 0
     
-    # Get total ad clicks
-    cursor.execute('SELECT COUNT(*) FROM ad_clicks')
-    total_ad_clicks = cursor.fetchone()[0] or 0
-    
-    # Get unique users who clicked ads
-    cursor.execute('SELECT COUNT(DISTINCT user_id) FROM ad_clicks')
-    unique_users_clicked = cursor.fetchone()[0] or 0
-    
-    # Get ad videos with their like counts and click counts
+    # Get ad videos with their like counts
     cursor.execute('''
-        SELECT r.filename, r.total_likes, 
-               COALESCE(click_counts.clicks, 0) as click_count
+        SELECT r.filename, r.total_likes
         FROM records r
-        LEFT JOIN (
-            SELECT video_id, COUNT(*) as clicks 
-            FROM ad_clicks 
-            GROUP BY video_id
-        ) click_counts ON r.id = click_counts.video_id
         WHERE r.is_ad = 1 
         ORDER BY r.total_likes DESC
     ''')
@@ -304,9 +225,7 @@ def get_stats():
     return jsonify({
         'total_ad_likes': ad_likes,
         'unique_users_liked_ads': unique_users_liked,
-        'total_ad_clicks': total_ad_clicks,
-        'unique_users_clicked_ads': unique_users_clicked,
-        'ad_videos': [{'filename': v[0], 'likes': v[1], 'clicks': v[2]} for v in ad_videos]
+        'ad_videos': [{'filename': v[0], 'likes': v[1]} for v in ad_videos]
     })
 
 @app.route('/admin')
@@ -327,10 +246,13 @@ def admin():
             .reset-btn:hover { background: #cc0000; }
             .refresh-btn { background: #4444ff; color: white; border: none; border-radius: 3px; }
             .refresh-btn:hover { background: #0000cc; }
+            .status { margin: 10px 0; padding: 10px; background: #e6f3ff; border-radius: 3px; }
         </style>
     </head>
     <body>
         <h1>Video Website Admin</h1>
+        <div class="status" id="status">Loading...</div>
+        
         <button class="refresh-btn" onclick="loadStats()">Refresh Stats</button>
         <button class="reset-btn" onclick="resetStats()">Reset All Stats</button>
         <button onclick="refreshVideos()">Refresh Video List</button>
@@ -344,6 +266,8 @@ def admin():
         </div>
         
         <script>
+            let isPolling = false;
+            
             function loadStats() {
                 fetch('/api/stats')
                     .then(response => response.json())
@@ -352,20 +276,25 @@ def admin():
                             <h2>Advertisement Statistics</h2>
                             <p><strong>Total Likes on Ads:</strong> ${data.total_ad_likes}</p>
                             <p><strong>Unique Users Who Liked Ads:</strong> ${data.unique_users_liked_ads}</p>
-                            <p><strong>Total Ad Clicks:</strong> ${data.total_ad_clicks}</p>
-                            <p><strong>Unique Users Who Clicked Ads:</strong> ${data.unique_users_clicked_ads}</p>
                             <h3>Ad Performance:</h3>
                             ${data.ad_videos.map(ad => `
                                 <div style="margin: 10px 0; padding: 10px; background: #fff; border-radius: 3px;">
                                     <strong>${ad.filename}</strong><br>
-                                    Likes: ${ad.likes} | Clicks: ${ad.clicks}
+                                    Likes: ${ad.likes}
                                 </div>
                             `).join('')}
+                        `;
+                        
+                        document.getElementById('status').innerHTML = `
+                            <strong>Status:</strong> Connected - Last updated: ${new Date().toLocaleTimeString()}
                         `;
                     })
                     .catch(error => {
                         console.error('Error loading stats:', error);
                         document.getElementById('stats').innerHTML = 'Error loading stats';
+                        document.getElementById('status').innerHTML = `
+                            <strong>Status:</strong> Error loading stats - ${new Date().toLocaleTimeString()}
+                        `;
                     });
             }
             
@@ -391,7 +320,7 @@ def admin():
             }
             
             function resetStats() {
-                if (confirm('Are you sure you want to reset all stats? This will delete all likes, clicks, and user data.')) {
+                if (confirm('Are you sure you want to reset all stats? This will delete all likes and user data.')) {
                     fetch('/api/reset', { method: 'POST' })
                         .then(response => response.json())
                         .then(data => {
@@ -421,15 +350,23 @@ def admin():
                 }
             }
             
+            function startPolling() {
+                if (!isPolling) {
+                    isPolling = true;
+                    // Poll every 2 seconds for real-time updates
+                    setInterval(() => {
+                        loadStats();
+                        loadVideos();
+                    }, 2000);
+                }
+            }
+            
             // Load data on page load
             loadStats();
             loadVideos();
             
-            // Auto-refresh every 30 seconds
-            setInterval(() => {
-                loadStats();
-                loadVideos();
-            }, 30000);
+            // Start real-time polling
+            startPolling();
         </script>
     </body>
     </html>
@@ -442,9 +379,8 @@ def reset_stats():
         conn = sqlite3.connect('likes.db')
         cursor = conn.cursor()
         
-        # Clear all likes and clicks
+        # Clear all likes
         cursor.execute('DELETE FROM user_likes')
-        cursor.execute('DELETE FROM ad_clicks')
         cursor.execute('UPDATE records SET total_likes = 0')
         
         conn.commit()
@@ -474,13 +410,3 @@ if __name__ == '__main__':
     print("Admin panel: http://localhost:8000/admin")
     print("To reset database completely, delete 'likes.db' file before running")
     app.run(debug=True, host='0.0.0.0', port=8000)
-
-if __name__ == '__main__':
-    init_db()
-    load_videos()
-    print("Starting server...")
-    print("Main site: http://localhost:8000")
-    print("Admin panel: http://localhost:8000/admin")
-    print("To reset database completely, delete 'likes.db' file before running")
-    # Change htis line for production later 
-    app.runn(debug=False, host='0.0.0.0', port=8000)

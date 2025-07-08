@@ -127,49 +127,19 @@
             stroke: #ff0040;
         }
 
-        .ad-link {
+        .ad-indicator {
             position: absolute;
             bottom: 13px;
             left: 13px;
-            right: 65px;
             background: #FFD700;
             color: #000;
-            padding: 8px 12px;
-            border-radius: 20px;
-            font-size: 13px;
-            font-weight: 600;
-            text-decoration: none;
-            z-index: 10;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-            border: 2px solid #FFD700;
-        }
-
-        .ad-link:hover {
-            background: #FFC700;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-        }
-
-        .ad-indicator-inline {
-            background: #000;
-            color: #FFD700;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 10px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 18px;
             font-weight: bold;
             text-transform: uppercase;
-        }
-
-        .arrow-icon {
-            width: 16px;
-            height: 16px;
-            fill: #000;
-            flex-shrink: 0;
+            z-index: 10;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
 
         .main-container {
@@ -516,25 +486,6 @@
             return container;
         }
 
-        // Track ad clicks
-        async function trackAdClick(videoId) {
-            try {
-                await fetch('/api/ad_click', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        user_id: userId,
-                        video_id: videoId
-                    })
-                });
-                console.log('Ad click tracked for video:', videoId);
-            } catch (error) {
-                console.error('Error tracking ad click:', error);
-            }
-        }
-
         // Create video element
         function createVideoElement(videoInfo, index) {
             const container = document.createElement('div');
@@ -542,16 +493,8 @@
             
             const videoPath = videoInfo.filename.startsWith('static/') ? videoInfo.filename : `static/${videoInfo.filename}`;
             
-            const adLinkHtml = videoInfo.is_ad ? `
-                <a href="https://google.com" target="_blank" class="ad-link" onclick="trackAdClick(${videoInfo.id})">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span class="ad-indicator-inline">Ad</span>
-                        Visit website to learn more
-                    </div>
-                    <svg class="arrow-icon" viewBox="0 0 24 24">
-                        <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
-                    </svg>
-                </a>
+            const adIndicatorHtml = videoInfo.is_ad ? `
+                <div class="ad-indicator">Ad</div>
             ` : '';
             
             container.innerHTML = `
@@ -571,7 +514,7 @@
                         </svg>
                     </button>
                     
-                    ${adLinkHtml}
+                    ${adIndicatorHtml}
                     
                     <div class="play-pause-overlay" id="overlay${index}">
                         <svg viewBox="0 0 24 24" id="playIcon${index}" style="display: none;">
