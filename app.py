@@ -4,6 +4,7 @@ import sqlite3
 import os
 import json
 from datetime import datetime
+import random
 
 app = Flask(__name__)
 app.secret_key = 'rio_sophie_claire_secure_key_2024'
@@ -43,6 +44,7 @@ def load_videos():
     cursor = conn.cursor()
 
     video_files = []
+    ad_files = []
 
     # Load regular videos from videos directory
     videos_dir = 'videos'
@@ -52,7 +54,7 @@ def load_videos():
             if filename.lower().endswith('.mp4'):
                 filepath = os.path.join(videos_dir, filename)
                 if os.path.isfile(filepath):
-                    video_files.append((f'videos/{filename}', 0))
+                    video_files.append(f'videos/{filename}')
                     print(f"Found video: {filename}")
 
     # Load ads from ads directory
@@ -63,7 +65,7 @@ def load_videos():
             if filename.lower().endswith('.mp4'):
                 filepath = os.path.join(ads_dir, filename)
                 if os.path.isfile(filepath):
-                    video_files.append((f'ads/{filename}', 1))
+                    ad_files.append(f'ads/{filename}')
                     print(f"Found ad: {filename}")
 
     # Load videos from static/videos directory
@@ -74,7 +76,7 @@ def load_videos():
             if filename.lower().endswith('.mp4'):
                 filepath = os.path.join(static_videos_dir, filename)
                 if os.path.isfile(filepath):
-                    video_files.append((f'static/videos/{filename}', 0))
+                    video_files.append(f'static/videos/{filename}')
                     print(f"Found video in static: {filename}")
 
     # Load ads from static/ads directory
@@ -85,7 +87,7 @@ def load_videos():
             if filename.lower().endswith('.mp4'):
                 filepath = os.path.join(static_ads_dir, filename)
                 if os.path.isfile(filepath):
-                    video_files.append((f'static/ads/{filename}', 1))
+                    ad_files.append(f'static/ads/{filename}')
                     print(f"Found ad in static: {filename}")
 
     # Load videos directly from static directory
@@ -97,37 +99,122 @@ def load_videos():
                 filepath = os.path.join(static_dir, filename)
                 if os.path.isfile(filepath):
                     # Check if filename suggests it's an ad
-                    is_ad = 1 if filename.lower().startswith('ad') else 0
-                    video_files.append((f'static/{filename}', is_ad))
-                    print(f"Found video in static root: {filename} (is_ad: {is_ad})")
+                    if filename.lower().startswith('ad'):
+                        ad_files.append(f'static/{filename}')
+                        print(f"Found ad in static root: {filename}")
+                    else:
+                        video_files.append(f'static/{filename}')
+                        print(f"Found video in static root: {filename}")
     
     print(f"Total videos found: {len(video_files)}")
+    print(f"Total ads found: {len(ad_files)}")
     
     # Clear existing records to avoid duplicates
     cursor.execute('DELETE FROM records')
     
-    # Insert videos into database, avoiding duplicates
+    # Insert videos into database
     added_count = 0
-    for filepath, is_ad in video_files:
+    for filepath in video_files:
         try:
             cursor.execute('''
                 INSERT OR IGNORE INTO records (filename, is_ad, total_likes) 
-                VALUES (?, ?, 0)
-            ''', (filepath, is_ad))
+                VALUES (?, 0, 0)
+            ''', (filepath,))
             
-            # Check if the insert was successful
             if cursor.rowcount > 0:
                 added_count += 1
-                print(f"Added to database: {filepath} (is_ad: {is_ad})")
-            else:
-                print(f"Skipped duplicate: {filepath}")
+                print(f"Added video to database: {filepath}")
         except sqlite3.Error as e:
-            print(f"Error inserting {filepath}: {e}")
+            print(f"Error inserting video {filepath}: {e}")
+    
+    # Insert ads into database
+    for filepath in ad_files:
+        try:
+            cursor.execute('''
+                INSERT OR IGNORE INTO records (filename, is_ad, total_likes) 
+                VALUES (?, 1, 0)
+            ''', (filepath,))
+            
+            if cursor.rowcount > 0:
+                added_count += 1
+                print(f"Added ad to database: {filepath}")
+        except sqlite3.Error as e:
+            print(f"Error inserting ad {filepath}: {e}")
 
     conn.commit()
     conn.close()
-    print(f"Successfully loaded {added_count} videos into database")
+    print(f"Successfully loaded {added_count} items into database")
     return added_count
+
+def create_video_sequence():
+    """Create a sequence following the pattern: 2 videos, 1 ad, repeat"""
+    conn = sqlite3.connect('likes.db')
+    cursor = conn.cursor()
+    
+    # Get all videos and ads
+    cursor.execute('SELECT id, filename, is_ad, total_likes FROM records WHERE is_ad = 0 ORDER BY id')
+    videos = cursor.fetchall()
+    
+    cursor.execute('SELECT id, filename, is_ad, total_likes FROM records WHERE is_ad = 1 ORDER BY id')
+    ads = cursor.fetchall()
+    
+    conn.close()
+    
+    # Convert to list of dicts for easier handling
+    video_list = [{
+        'id': v[0],
+        'filename': v[1],
+        'is_ad': bool(v[2]),
+        'total_likes': v[3]
+    } for v in videos]
+    
+    ad_list = [{
+        'id': a[0],
+        'filename': a[1],
+        'is_ad': bool(a[2]),
+        'total_likes': a[3]
+    } for a in ads]
+    
+    # Shuffle both lists to add variety
+    random.shuffle(video_list)
+    random.shuffle(ad_list)
+    
+    # Create the sequence: 2 videos, 1 ad, repeat
+    sequence = []
+    video_index = 0
+    ad_index = 0
+    
+    while video_index < len(video_list) or ad_index < len(ad_list):
+        # Add 2 videos
+        videos_added = 0
+        while videos_added < 2 and video_index < len(video_list):
+            sequence.append(video_list[video_index])
+            video_index += 1
+            videos_added += 1
+        
+        # Add 1 ad
+        if ad_index < len(ad_list):
+            sequence.append(ad_list[ad_index])
+            ad_index += 1
+        
+        # If we're out of ads but still have videos, continue with videos only
+        if ad_index >= len(ad_list) and video_index < len(video_list):
+            while video_index < len(video_list):
+                sequence.append(video_list[video_index])
+                video_index += 1
+            break
+    
+    print(f"Created sequence with {len(sequence)} items")
+    print(f"Videos in sequence: {len([item for item in sequence if not item['is_ad']])}")
+    print(f"Ads in sequence: {len([item for item in sequence if item['is_ad']])}")
+    
+    # Print first 10 items to verify pattern
+    print("First 10 items in sequence:")
+    for i, item in enumerate(sequence[:10]):
+        item_type = "AD" if item['is_ad'] else "VIDEO"
+        print(f"{i+1}. {item_type}: {item['filename']}")
+    
+    return sequence
 
 # Routes
 @app.route('/')
@@ -167,25 +254,10 @@ def get_user_id():
 
 @app.route('/api/videos')
 def get_videos():
-    conn = sqlite3.connect('likes.db')
-    cursor = conn.cursor()
-    
-    cursor.execute('SELECT id, filename, is_ad, total_likes FROM records ORDER BY id')
-    videos = cursor.fetchall()
-    
-    conn.close()
-    
-    video_list = []
-    for video in videos:
-        video_list.append({
-            'id': video[0],
-            'filename': video[1],
-            'is_ad': bool(video[2]),
-            'total_likes': video[3]
-        })
-    
-    print(f"Returning {len(video_list)} videos")
-    return jsonify(video_list)
+    """Return videos in the 2-video-1-ad pattern"""
+    sequence = create_video_sequence()
+    print(f"Returning {len(sequence)} items in sequence")
+    return jsonify(sequence)
 
 @app.route('/api/like', methods=['POST'])
 def toggle_like():
@@ -276,6 +348,10 @@ def admin():
             .refresh-btn:hover { background: #0000cc; }
             .status { margin: 10px 0; padding: 10px; background: #e6f3ff; border-radius: 3px; }
             .summary { background: #e6ffe6; padding: 15px; margin: 10px 0; border-radius: 5px; }
+            .sequence-preview { background: #f0f8ff; padding: 15px; margin: 10px 0; border-radius: 5px; }
+            .sequence-item { display: inline-block; margin: 2px; padding: 5px 10px; border-radius: 3px; font-size: 12px; }
+            .sequence-video { background: #90EE90; color: #000; }
+            .sequence-ad { background: #FFB6C1; color: #000; }
         </style>
     </head>
     <body>
@@ -284,6 +360,10 @@ def admin():
         
         <div class="summary" id="summary">
             Loading summary...
+        </div>
+        
+        <div class="sequence-preview" id="sequencePreview">
+            Loading sequence preview...
         </div>
         
         <button class="refresh-btn" onclick="loadStats()">Refresh Stats</button>
@@ -338,6 +418,32 @@ def admin():
                     });
             }
             
+            function loadSequencePreview() {
+                fetch('/api/videos')
+                    .then(response => response.json())
+                    .then(sequence => {
+                        const previewItems = sequence.slice(0, 20); // Show first 20 items
+                        const sequenceHTML = `
+                            <h2>Video Sequence Preview (First 20 items)</h2>
+                            <p><strong>Pattern:</strong> 2 Videos → 1 Ad → Repeat</p>
+                            <div>
+                                ${previewItems.map((item, index) => `
+                                    <span class="sequence-item sequence-${item.is_ad ? 'ad' : 'video'}" title="${item.filename}">
+                                        ${index + 1}. ${item.is_ad ? 'AD' : 'VID'}
+                                    </span>
+                                `).join('')}
+                                ${sequence.length > 20 ? `<span class="sequence-item" style="background: #ddd;">... and ${sequence.length - 20} more</span>` : ''}
+                            </div>
+                        `;
+                        
+                        document.getElementById('sequencePreview').innerHTML = sequenceHTML;
+                    })
+                    .catch(error => {
+                        console.error('Error loading sequence:', error);
+                        document.getElementById('sequencePreview').innerHTML = 'Error loading sequence preview';
+                    });
+            }
+            
             function loadVideos() {
                 fetch('/api/videos')
                     .then(response => response.json())
@@ -369,6 +475,7 @@ def admin():
                             alert(data.message);
                             loadStats();
                             loadVideos();
+                            loadSequencePreview();
                         })
                         .catch(error => {
                             console.error('Error resetting stats:', error);
@@ -385,6 +492,7 @@ def admin():
                             alert(data.message);
                             loadStats();
                             loadVideos();
+                            loadSequencePreview();
                         })
                         .catch(error => {
                             console.error('Error refreshing videos:', error);
@@ -407,6 +515,7 @@ def admin():
             // Load data on page load
             loadStats();
             loadVideos();
+            loadSequencePreview();
             
             // Start real-time polling
             startPolling();
@@ -472,14 +581,15 @@ def get_stats():
         result = cursor.fetchone()
         total_ad_likes = result[0] if result[0] else 0
         
-        # Get unique users who liked ads
+        # FIXED: Get unique users who liked ads - properly handle empty result
         cursor.execute('''
-            SELECT COUNT(DISTINCT user_id) 
+            SELECT user_id 
             FROM user_likes 
             JOIN records ON user_likes.video_id = records.id 
             WHERE records.is_ad = 1
         ''')
-        unique_users_liked_ads = cursor.fetchone()[0]
+        unique_users_result = cursor.fetchall()
+        unique_users_liked_ads = len(set([row[0] for row in unique_users_result])) if unique_users_result else 0
         
         # Get individual ad performance
         cursor.execute('''
@@ -520,4 +630,4 @@ if __name__ == '__main__':
     print("Main site: http://localhost:8000")
     print("Admin panel: http://localhost:8000/admin")
     print("To reset database completely, delete 'likes.db' file before running")
-    app.run(debug=True, host='0.0.0.0', port=8000)  
+    app.run(debug=True, host='0.0.0.0', port=8000)
