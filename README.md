@@ -44,7 +44,7 @@ npm install
     npm start
     ```
 
-4. Access the application at `http://localhost:3000`.
+4. Access the application at `http://localhost:8000`.
 
 ## Notes
 Ensure all required tools are properly configured before running the program.
