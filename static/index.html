@@ -18,6 +18,21 @@
             overflow-x: hidden;
         }
 
+        .main-container {
+            height: 100vh;
+            overflow-y: auto;
+            scroll-snap-type: y mandatory;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .main-container::-webkit-scrollbar {
+            display: none;
+        }
+
         .video-container {
             position: relative;
             width: 100vw;
@@ -27,10 +42,6 @@
             justify-content: center;
             scroll-snap-align: start;
             flex-shrink: 0;
-        }
-
-        .video-container + .video-container {
-            margin-top: 20px;
         }
 
         .video-wrapper {
@@ -50,15 +61,34 @@
             cursor: pointer;
         }
 
-        .video-controls {
+        .research-notice {
             position: absolute;
-            right: 13px;
-            top: 50%;
-            transform: translateY(-50%);
-            display: flex;
-            flex-direction: column;
-            gap: 18px;
+            top: 13px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.2);
+            color: #ccc;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 10px;
             z-index: 10;
+            backdrop-filter: blur(10px);
+            text-align: center;
+        }
+
+        .ad-indicator {
+            position: absolute;
+            bottom: 13px;
+            left: 13px;
+            background: #FFD700;
+            color: #000;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 18px;
+            font-weight: bold;
+            text-transform: uppercase;
+            z-index: 10;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
 
         .audio-toggle {
@@ -90,6 +120,17 @@
             fill: white;
         }
 
+        .video-controls {
+            position: absolute;
+            right: 13px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            z-index: 10;
+        }
+
         .control-btn {
             background: rgba(255, 255, 255, 0.2);
             border: none;
@@ -109,10 +150,6 @@
             transform: scale(1.1);
         }
 
-        .like-btn {
-            position: relative;
-        }
-
         .like-btn svg {
             width: 25px;
             height: 25px;
@@ -125,40 +162,6 @@
         .like-btn.liked svg {
             fill: #ff0040;
             stroke: #ff0040;
-        }
-
-        .ad-indicator {
-            position: absolute;
-            bottom: 13px;
-            left: 13px;
-            background: #FFD700;
-            color: #000;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 18px;
-            font-weight: bold;
-            text-transform: uppercase;
-            z-index: 10;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-        }
-
-        .main-container {
-            height: 100vh;
-            overflow-y: auto;
-            scroll-snap-type: y mandatory;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-        
-        .video-container:not(:last-child) {
-            margin-bottom: 20px;
-        }
-
-        .main-container::-webkit-scrollbar {
-            display: none;
         }
 
         .play-pause-overlay {
@@ -202,6 +205,18 @@
             transform: translate(-50%, -50%);
             color: white;
             font-size: 16px;
+            z-index: 1000;
+        }
+
+        .debug-info {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
             z-index: 1000;
         }
 
@@ -311,27 +326,11 @@
             margin-bottom: 30px;
         }
 
-        .research-notice {
-            position: absolute;
-            top: 13px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(255, 255, 255, 0.2);
-            color: #ccc;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 10px;
-            z-index: 10;
-            backdrop-filter: blur(10px);
-            text-align: center;
-        }
-
         .frozen {
             pointer-events: none;
             overflow: hidden;
         }
 
-        /* Hidden elements */
         .video-info,
         .video-title,
         .video-description {
@@ -340,16 +339,18 @@
     </style>
 </head>
 <body>
-    <!-- Initial instructions popup -->
+    <div class="debug-info" id="debugInfo">
+        Loading...
+    </div>
+
     <div class="popup-overlay" id="instructionsPopup">
         <div class="popup">
             <h2>Welcome!</h2>
             <p>Scroll through the videos like how you would normally do on short-form media platforms. Click the heart button to like any videos or ads that you find interesting or persuasive. Click the video to play or pause. Click the speaker button to unmute or mute audio. The recommended scrolling time is 10 minutes, and the site will automatically cut you off after 12 minutes.</p>
-            <button class="popup-button" onclick="startSession()">I understand</button>
+            <button class="popup-button" onclick="app.startSession()">I understand</button>
         </div>
     </div>
 
-    <!-- Time up popup -->
     <div class="popup-overlay" id="timeUpPopup" style="display: none;">
         <div class="popup">
             <h2>Time is up!</h2>
@@ -365,400 +366,422 @@
     </div>
 
     <script>
-        let currentVideo = 1;
-        let likedVideos = new Set();
-        let userId = null;
-        let videos = {};
-        let videoData = [];
-        let userPreferredAudioState = false;
-        let sessionStarted = false;
-        let timerInterval = null;
-        let timeRemaining = 12 * 60; // 12 minutes in seconds
-        let twoMinuteWarningShown = false;
-        let allVideosScrolled = false;
-        
-        // Get user ID from server
-        async function getUserId() {
-            try {
-                const response = await fetch('/api/get_user_id');
-                const data = await response.json();
-                userId = data.user_id;
-                console.log('User ID:', userId);
-            } catch (error) {
-                console.error('Error getting user ID:', error);
-                userId = Math.random().toString(36).substr(2, 9); // Fallback
-            }
-        }
-        
-        // Start session and timer
-        function startSession() {
-            sessionStarted = true;
-            document.getElementById('instructionsPopup').style.display = 'none';
-            
-            // Start 12-minute timer
-            timerInterval = setInterval(() => {
-                timeRemaining--;
+        // App state management
+        const app = {
+            state: {
+                currentVideo: 1,
+                likedVideos: new Set(),
+                userId: null,
+                videos: {},
+                videoData: [],
+                userPreferredAudioState: false,
+                sessionStarted: false,
+                timerInterval: null,
+                timeRemaining: 12 * 60,
+                twoMinuteWarningShown: false,
+                allVideosScrolled: false
+            },
+
+            // Initialize app
+            async init() {
+                await this.getUserId();
+                await this.loadVideos();
+                this.setupKeyboardNavigation();
+            },
+
+            // Get user ID from server
+            async getUserId() {
+                try {
+                    const response = await fetch('/api/get_user_id');
+                    const data = await response.json();
+                    this.state.userId = data.user_id;
+                    console.log('User ID:', this.state.userId);
+                } catch (error) {
+                    console.error('Error getting user ID:', error);
+                    this.state.userId = Math.random().toString(36).substr(2, 9);
+                }
+            },
+
+            // Start session and timer
+            startSession() {
+                this.state.sessionStarted = true;
+                document.getElementById('instructionsPopup').style.display = 'none';
+                document.getElementById('debugInfo').style.display = 'none';
                 
-                // Show 2-minute warning
-                if (timeRemaining === 2 * 60 && !twoMinuteWarningShown) {
-                    showTwoMinuteWarning();
-                    twoMinuteWarningShown = true;
+                this.state.timerInterval = setInterval(() => {
+                    this.state.timeRemaining--;
+                    
+                    if (this.state.timeRemaining === 2 * 60 && !this.state.twoMinuteWarningShown) {
+                        this.showWarning('2 minutes remaining');
+                        this.state.twoMinuteWarningShown = true;
+                    }
+                    
+                    if (this.state.timeRemaining <= 0) {
+                        clearInterval(this.state.timerInterval);
+                        this.freezeAndShowTimeUp();
+                    }
+                }, 1000);
+            },
+
+            // Show warning message
+            showWarning(message) {
+                const warning = document.createElement('div');
+                warning.className = 'small-popup';
+                warning.textContent = message;
+                document.body.appendChild(warning);
+                
+                setTimeout(() => warning.remove(), 5000);
+            },
+
+            // Freeze interface and show time up popup
+            freezeAndShowTimeUp() {
+                document.body.classList.add('frozen');
+                document.getElementById('timeUpPopup').style.display = 'flex';
+                
+                Object.values(this.state.videos).forEach(video => video.pause());
+            },
+
+            // Load videos from server
+            async loadVideos() {
+                try {
+                    const response = await fetch('/api/videos');
+                    this.state.videoData = await response.json();
+                    
+                    console.log('Loaded video data:', this.state.videoData);
+                    
+                    // Update debug info
+                    const debugInfo = document.getElementById('debugInfo');
+                    const totalVideos = this.state.videoData.length;
+                    const adCount = this.state.videoData.filter(v => v.is_ad).length;
+                    const regularCount = totalVideos - adCount;
+                    
+                    debugInfo.innerHTML = `
+                        Total videos loaded: ${totalVideos}<br>
+                        Regular videos: ${regularCount}<br>
+                        Ads: ${adCount}<br>
+                        Click "I understand" to start
+                    `;
+                    
+                    const container = document.getElementById('mainContainer');
+                    container.innerHTML = '';
+                    
+                    this.state.videoData.forEach((video, index) => {
+                        const videoContainer = this.createVideoElement(video, index + 1);
+                        container.appendChild(videoContainer);
+                    });
+                    
+                    container.appendChild(this.createEndScreen());
+                    
+                    document.getElementById('loading').style.display = 'none';
+                    this.initializeVideos();
+                    
+                } catch (error) {
+                    console.error('Error loading videos:', error);
+                    document.getElementById('loading').textContent = 'Error loading videos';
+                    document.getElementById('debugInfo').innerHTML = 'Error loading videos: ' + error.message;
+                }
+            },
+
+            // Create video element with improved path handling
+            createVideoElement(videoInfo, index) {
+                const container = document.createElement('div');
+                container.className = 'video-container';
+                
+                // Simplified and more robust video path handling
+                let videoPath = videoInfo.filename;
+                
+                // If the filename doesn't start with 'static/', add it
+                if (!videoPath.startsWith('static/')) {
+                    videoPath = `static/${videoPath}`;
                 }
                 
-                // Time up
-                if (timeRemaining <= 0) {
-                    clearInterval(timerInterval);
-                    freezeAndShowTimeUp();
-                }
-            }, 1000);
-        }
-
-        // Show 2-minute warning
-        function showTwoMinuteWarning() {
-            const warning = document.createElement('div');
-            warning.className = 'small-popup';
-            warning.textContent = '2 minutes remaining';
-            document.body.appendChild(warning);
-            
-            setTimeout(() => {
-                warning.remove();
-            }, 5000);
-        }
-
-        // Freeze interface and show time up popup
-        function freezeAndShowTimeUp() {
-            document.body.classList.add('frozen');
-            document.getElementById('timeUpPopup').style.display = 'flex';
-            
-            // Pause all videos
-            Object.values(videos).forEach(video => {
-                video.pause();
-            });
-        }
-
-        // Load videos from server
-        async function loadVideos() {
-            try {
-                const response = await fetch('/api/videos');
-                videoData = await response.json();
+                // Log the video path for debugging
+                console.log(`Video ${index}: ${videoInfo.filename} -> ${videoPath} (is_ad: ${videoInfo.is_ad})`);
                 
-                // Create video elements
-                const container = document.getElementById('mainContainer');
-                container.innerHTML = '';
-                
-                videoData.forEach((video, index) => {
-                    const videoContainer = createVideoElement(video, index + 1);
-                    container.appendChild(videoContainer);
-                });
-                
-                // Add end screen
-                const endScreen = createEndScreen();
-                container.appendChild(endScreen);
-                
-                // Hide loading
-                document.getElementById('loading').style.display = 'none';
-                
-                // Initialize video functionality
-                initializeVideos();
-                
-            } catch (error) {
-                console.error('Error loading videos:', error);
-                document.getElementById('loading').textContent = 'Error loading videos';
-            }
-        }
-
-        // Create end screen
-        function createEndScreen() {
-            const container = document.createElement('div');
-            container.className = 'video-container';
-            container.id = 'endScreen';
-            
-            container.innerHTML = `
-                <div class="video-wrapper">
-                    <div class="end-screen">
-                        <h3>You have finished scrolling all the videos!</h3>
-                        <p>Please now complete these post-study questions.</p>
-                        <a href="https://google.com" target="_blank" class="popup-button">Click here</a>
-                    </div>
-                </div>
-            `;
-            
-            return container;
-        }
-
-        // Create video element
-        function createVideoElement(videoInfo, index) {
-            const container = document.createElement('div');
-            container.className = 'video-container';
-            
-            const videoPath = videoInfo.filename.startsWith('static/') ? videoInfo.filename : `static/${videoInfo.filename}`;
-            
-            const adIndicatorHtml = videoInfo.is_ad ? `
-                <div class="ad-indicator">Ad</div>
-            ` : '';
-            
-            container.innerHTML = `
-                <div class="video-wrapper">
-                    <div class="research-notice">This site is for research purposes only</div>
-                    <video class="video-player" id="video${index}" ${userPreferredAudioState ? '' : 'muted'} preload="metadata">
-                        <source src="${videoPath}" type="video/mp4">
-                        Your browser does not support the video tag.
-                    </video>
-                    
-                    <button class="audio-toggle" onclick="toggleAudio(${index})">
-                        <svg id="mutedIcon${index}" viewBox="0 0 24 24" style="display: ${userPreferredAudioState ? 'none' : 'block'};">
-                            <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
-                        </svg>
-                        <svg id="unmutedIcon${index}" viewBox="0 0 24 24" style="display: ${userPreferredAudioState ? 'block' : 'none'};">
-                            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
-                        </svg>
-                    </button>
-                    
-                    ${adIndicatorHtml}
-                    
-                    <div class="play-pause-overlay" id="overlay${index}">
-                        <svg viewBox="0 0 24 24" id="playIcon${index}" style="display: none;">
-                            <path d="M8 5v14l11-7z"/>
-                        </svg>
-                        <svg viewBox="0 0 24 24" id="pauseIcon${index}">
-                            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
-                        </svg>
-                    </div>
-                    
-                    <div class="video-controls">
-                        <button class="control-btn like-btn" onclick="toggleLike(${videoInfo.id}, ${index})">
-                            <svg viewBox="0 0 24 24">
-                                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                            </svg>
+                container.innerHTML = `
+                    <div class="video-wrapper">
+                        <div class="research-notice">This site is for research purposes only</div>
+                        <video class="video-player" id="video${index}" ${this.state.userPreferredAudioState ? '' : 'muted'} preload="metadata">
+                            <source src="${videoPath}" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                        
+                        <button class="audio-toggle" onclick="app.toggleAudio(${index})">
+                            ${this.getAudioIcon(index)}
                         </button>
+                        
+                        ${videoInfo.is_ad ? '<div class="ad-indicator">Ad</div>' : ''}
+                        
+                        <div class="play-pause-overlay" id="overlay${index}">
+                            <svg viewBox="0 0 24 24" id="playIcon${index}" style="display: none;">
+                                <path d="M8 5v14l11-7z"/>
+                            </svg>
+                            <svg viewBox="0 0 24 24" id="pauseIcon${index}">
+                                <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                            </svg>
+                        </div>
+                        
+                        <div class="video-controls">
+                            <button class="control-btn like-btn" onclick="app.toggleLike(${videoInfo.id}, ${index})">
+                                <svg viewBox="0 0 24 24">
+                                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
-                </div>
-            `;
-            
-            return container;
-        }
+                `;
+                
+                return container;
+            },
 
-        // Toggle audio function
-        function toggleAudio(videoIndex) {
-            const video = document.getElementById(`video${videoIndex}`);
-            const mutedIcon = document.getElementById(`mutedIcon${videoIndex}`);
-            const unmutedIcon = document.getElementById(`unmutedIcon${videoIndex}`);
-            
-            if (video.muted) {
-                video.muted = false;
-                mutedIcon.style.display = 'none';
-                unmutedIcon.style.display = 'block';
-                userPreferredAudioState = true;
-            } else {
-                video.muted = true;
-                mutedIcon.style.display = 'block';
-                unmutedIcon.style.display = 'none';
-                userPreferredAudioState = false;
-            }
-            
-            updateAllVideosAudioState();
-        }
+            // Get audio icon HTML
+            getAudioIcon(index) {
+                const mutedIcon = `
+                    <svg id="mutedIcon${index}" viewBox="0 0 24 24" style="display: ${this.state.userPreferredAudioState ? 'none' : 'block'};">
+                        <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+                    </svg>
+                `;
+                
+                const unmutedIcon = `
+                    <svg id="unmutedIcon${index}" viewBox="0 0 24 24" style="display: ${this.state.userPreferredAudioState ? 'block' : 'none'};">
+                        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                    </svg>
+                `;
+                
+                return mutedIcon + unmutedIcon;
+            },
 
-        // Update all videos to match user's audio preference
-        function updateAllVideosAudioState() {
-            Object.values(videos).forEach((video, index) => {
-                const videoIndex = index + 1;
+            // Create end screen
+            createEndScreen() {
+                const container = document.createElement('div');
+                container.className = 'video-container';
+                container.id = 'endScreen';
+                
+                container.innerHTML = `
+                    <div class="video-wrapper">
+                        <div class="end-screen">
+                            <h3>You have finished scrolling all the videos!</h3>
+                            <p>Please now complete these post-study questions.</p>
+                            <a href="https://google.com" target="_blank" class="popup-button">Click here</a>
+                        </div>
+                    </div>
+                `;
+                
+                return container;
+            },
+
+            // Initialize videos with better error handling
+            initializeVideos() {
+                const videoElements = document.querySelectorAll('.video-player');
+                
+                videoElements.forEach((video, index) => {
+                    this.state.videos[index + 1] = video;
+                    
+                    video.addEventListener('error', (e) => {
+                        console.error(`Video ${index + 1} failed to load:`, e);
+                        console.error('Video source:', video.src);
+                        console.error('Error code:', video.error ? video.error.code : 'Unknown');
+                    });
+                    
+                    video.addEventListener('loadedmetadata', () => {
+                        console.log(`Video ${index + 1} loaded successfully`);
+                    });
+                    
+                    video.addEventListener('ended', () => {
+                        video.currentTime = 0;
+                        video.play().catch(e => console.error('Error restarting video:', e));
+                    });
+                    
+                    video.addEventListener('click', () => {
+                        if (this.state.sessionStarted) {
+                            this.togglePlayPause(index + 1);
+                        }
+                    });
+                });
+
+                this.setupIntersectionObserver();
+                
+                // Start first video
+                if (this.state.videos[1]) {
+                    this.state.videos[1].play().catch(e => console.error('Error starting first video:', e));
+                }
+            },
+
+            // Setup intersection observer
+            setupIntersectionObserver() {
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.target.id === 'endScreen') {
+                            if (entry.isIntersecting && !this.state.allVideosScrolled) {
+                                this.state.allVideosScrolled = true;
+                                if (this.state.timerInterval) {
+                                    clearInterval(this.state.timerInterval);
+                                }
+                            }
+                            return;
+                        }
+                        
+                        const video = entry.target.querySelector('.video-player');
+                        if (entry.isIntersecting) {
+                            video.play().catch(e => console.error('Error playing video:', e));
+                            this.state.currentVideo = parseInt(video.id.replace('video', ''));
+                        } else {
+                            video.pause();
+                        }
+                    });
+                }, { threshold: 0.7 });
+
+                document.querySelectorAll('.video-container').forEach(container => {
+                    observer.observe(container);
+                });
+            },
+
+            // Toggle audio
+            toggleAudio(videoIndex) {
+                const video = document.getElementById(`video${videoIndex}`);
                 const mutedIcon = document.getElementById(`mutedIcon${videoIndex}`);
                 const unmutedIcon = document.getElementById(`unmutedIcon${videoIndex}`);
                 
-                if (mutedIcon && unmutedIcon) {
-                    video.muted = !userPreferredAudioState;
-                    if (userPreferredAudioState) {
-                        mutedIcon.style.display = 'none';
-                        unmutedIcon.style.display = 'block';
-                    } else {
-                        mutedIcon.style.display = 'block';
-                        unmutedIcon.style.display = 'none';
-                    }
+                if (video.muted) {
+                    video.muted = false;
+                    mutedIcon.style.display = 'none';
+                    unmutedIcon.style.display = 'block';
+                    this.state.userPreferredAudioState = true;
+                } else {
+                    video.muted = true;
+                    mutedIcon.style.display = 'block';
+                    unmutedIcon.style.display = 'none';
+                    this.state.userPreferredAudioState = false;
                 }
-            });
-        }
-
-        // Initialize video functionality
-        function initializeVideos() {
-            const videoElements = document.querySelectorAll('.video-player');
-            videoElements.forEach((video, index) => {
-                videos[index + 1] = video;
                 
-                // Add error handling for videos that fail to load
-                video.addEventListener('error', (e) => {
-                    console.error(`Video ${index + 1} failed to load:`, e);
-                });
-                
-                // Add loadedmetadata event to ensure video is ready
-                video.addEventListener('loadedmetadata', () => {
-                    console.log(`Video ${index + 1} loaded successfully`);
-                });
-            });
+                this.updateAllVideosAudioState();
+            },
 
-            // Set up intersection observer for auto-play
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.target.id === 'endScreen') {
-                        if (entry.isIntersecting && !allVideosScrolled) {
-                            allVideosScrolled = true;
-                            // Stop timer if still running
-                            if (timerInterval) {
-                                clearInterval(timerInterval);
-                            }
+            // Update all videos audio state
+            updateAllVideosAudioState() {
+                Object.values(this.state.videos).forEach((video, index) => {
+                    const videoIndex = index + 1;
+                    const mutedIcon = document.getElementById(`mutedIcon${videoIndex}`);
+                    const unmutedIcon = document.getElementById(`unmutedIcon${videoIndex}`);
+                    
+                    if (mutedIcon && unmutedIcon) {
+                        video.muted = !this.state.userPreferredAudioState;
+                        if (this.state.userPreferredAudioState) {
+                            mutedIcon.style.display = 'none';
+                            unmutedIcon.style.display = 'block';
+                        } else {
+                            mutedIcon.style.display = 'block';
+                            unmutedIcon.style.display = 'none';
                         }
-                        return;
+                    }
+                });
+            },
+
+            // Toggle play/pause
+            togglePlayPause(videoIndex) {
+                const video = this.state.videos[videoIndex];
+                const overlay = document.getElementById(`overlay${videoIndex}`);
+                const playIcon = document.getElementById(`playIcon${videoIndex}`);
+                const pauseIcon = document.getElementById(`pauseIcon${videoIndex}`);
+                
+                if (video.paused) {
+                    video.play().catch(e => console.error('Error playing video:', e));
+                    playIcon.style.display = 'none';
+                    pauseIcon.style.display = 'block';
+                } else {
+                    video.pause();
+                    playIcon.style.display = 'block';
+                    pauseIcon.style.display = 'none';
+                }
+                
+                this.showPlayPauseOverlay(overlay);
+            },
+
+            // Show play/pause overlay animation
+            showPlayPauseOverlay(overlay) {
+                overlay.classList.add('show');
+                setTimeout(() => overlay.classList.add('shrink'), 150);
+                setTimeout(() => overlay.classList.remove('show', 'shrink'), 800);
+            },
+
+            // Toggle like
+            async toggleLike(videoId, displayIndex) {
+                if (!this.state.sessionStarted) return;
+                
+                try {
+                    const response = await fetch('/api/like', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            user_id: this.state.userId,
+                            video_id: videoId
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    const button = document.querySelector(`[onclick="app.toggleLike(${videoId}, ${displayIndex})"]`);
+                    
+                    if (data.liked) {
+                        this.state.likedVideos.add(videoId);
+                        button.classList.add('liked');
+                        console.log(`Liked video ${videoId}`);
+                    } else {
+                        this.state.likedVideos.delete(videoId);
+                        button.classList.remove('liked');
+                        console.log(`Unliked video ${videoId}`);
                     }
                     
-                    const video = entry.target.querySelector('.video-player');
-                    if (entry.isIntersecting) {
-                        video.play().catch(e => {
-                            console.error('Error playing video:', e);
-                        });
-                        currentVideo = parseInt(video.id.replace('video', ''));
-                    } else {
-                        video.pause();
-                    }
-                });
-            }, {
-                threshold: 0.7
-            });
-
-            // Observe all video containers and end screen
-            document.querySelectorAll('.video-container').forEach(container => {
-                observer.observe(container);
-            });
-
-            // Add event listeners for each video
-            Object.values(videos).forEach((video, index) => {
-                const videoIndex = index + 1;
-                
-                video.addEventListener('ended', () => {
-                    video.currentTime = 0;
-                    video.play().catch(e => {
-                        console.error('Error restarting video:', e);
-                    });
-                });
-
-                video.addEventListener('click', () => {
-                    if (sessionStarted) {
-                        togglePlayPause(videoIndex);
-                    }
-                });
-            });
-
-            // Start first video
-            if (videos[1]) {
-                videos[1].play().catch(e => {
-                    console.error('Error starting first video:', e);
-                });
-            }
-        }
-
-        // Toggle play/pause
-        function togglePlayPause(videoIndex) {
-            const video = videos[videoIndex];
-            const overlay = document.getElementById(`overlay${videoIndex}`);
-            const playIcon = document.getElementById(`playIcon${videoIndex}`);
-            const pauseIcon = document.getElementById(`pauseIcon${videoIndex}`);
-            
-            if (video.paused) {
-                video.play().catch(e => {
-                    console.error('Error playing video:', e);
-                });
-                playIcon.style.display = 'none';
-                pauseIcon.style.display = 'block';
-            } else {
-                video.pause();
-                playIcon.style.display = 'block';
-                pauseIcon.style.display = 'none';
-            }
-            
-            overlay.classList.add('show');
-            setTimeout(() => {
-                overlay.classList.add('shrink');
-            }, 150);
-            
-            setTimeout(() => {
-                overlay.classList.remove('show', 'shrink');
-            }, 800);
-        }
-
-        // Like functionality - now connects to backend
-        async function toggleLike(videoId, displayIndex) {
-            if (!sessionStarted) return;
-            
-            try {
-                const response = await fetch('/api/like', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        user_id: userId,
-                        video_id: videoId
-                    })
-                });
-                
-                const data = await response.json();
-                const button = document.querySelector(`[onclick="toggleLike(${videoId}, ${displayIndex})"]`);
-                
-                if (data.liked) {
-                    likedVideos.add(videoId);
-                    button.classList.add('liked');
-                    console.log(`Liked video ${videoId}`);
-                } else {
-                    likedVideos.delete(videoId);
-                    button.classList.remove('liked');
-                    console.log(`Unliked video ${videoId}`);
+                } catch (error) {
+                    console.error('Error toggling like:', error);
                 }
-                
-            } catch (error) {
-                console.error('Error toggling like:', error);
-            }
-        }
+            },
 
-        // Keyboard navigation
-        document.addEventListener('keydown', (e) => {
-            if (!sessionStarted) return;
-            
-            if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                if (currentVideo > 1) {
-                    const targetVideo = currentVideo - 1;
+            // Navigate to video
+            navigateToVideo(targetVideo) {
+                const totalVideos = Object.keys(this.state.videos).length;
+                
+                if (targetVideo >= 1 && targetVideo <= totalVideos) {
                     document.getElementById(`video${targetVideo}`).parentElement.parentElement.scrollIntoView({
                         behavior: 'smooth',
                         block: 'center'
                     });
-                }
-            } else if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                if (currentVideo < Object.keys(videos).length) {
-                    const targetVideo = currentVideo + 1;
-                    document.getElementById(`video${targetVideo}`).parentElement.parentElement.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'center'
-                    });
-                } else {
-                    // Scroll to end screen
+                } else if (targetVideo > totalVideos) {
                     document.getElementById('endScreen').scrollIntoView({
                         behavior: 'smooth',
                         block: 'center'
                     });
                 }
-            } else if (e.key === ' ') {
-                e.preventDefault();
-                if (videos[currentVideo]) {
-                    togglePlayPause(currentVideo);
-                }
-            }
-        });
+            },
 
-        // Initialize when page loads
-        document.addEventListener('DOMContentLoaded', async () => {
-            await getUserId();
-            await loadVideos();
-        });
+            // Setup keyboard navigation
+            setupKeyboardNavigation() {
+                document.addEventListener('keydown', (e) => {
+                    if (!this.state.sessionStarted) return;
+                    
+                    switch(e.key) {
+                        case 'ArrowUp':
+                            e.preventDefault();
+                            if (this.state.currentVideo > 1) {
+                                this.navigateToVideo(this.state.currentVideo - 1);
+                            }
+                            break;
+                        case 'ArrowDown':
+                            e.preventDefault();
+                            this.navigateToVideo(this.state.currentVideo + 1);
+                            break;
+                        case ' ':
+                            e.preventDefault();
+                            if (this.state.videos[this.state.currentVideo]) {
+                                this.togglePlayPause(this.state.currentVideo);
+                            }
+                            break;
+                    }
+                });
+            }
+        };
+
+        // Initialize app when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => app.init());
     </script>
 </body>
 </html>

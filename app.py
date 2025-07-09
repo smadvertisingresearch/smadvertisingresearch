@@ -44,40 +44,90 @@ def load_videos():
 
     video_files = []
 
-    # Load regular videos
-    videos_dir = 'static/videos'
+    # Load regular videos from videos directory
+    videos_dir = 'videos'
     if os.path.exists(videos_dir):
+        print(f"Scanning videos directory: {videos_dir}")
         for filename in os.listdir(videos_dir):
-            if filename.endswith('.mp4'):
+            if filename.lower().endswith('.mp4'):
                 filepath = os.path.join(videos_dir, filename)
                 if os.path.isfile(filepath):
-                    video_files.append(('videos/' + filename, 0))
+                    video_files.append((f'videos/{filename}', 0))
                     print(f"Found video: {filename}")
 
-    # Load ads
-    ads_dir = 'static/ads'
+    # Load ads from ads directory
+    ads_dir = 'ads'
     if os.path.exists(ads_dir):
+        print(f"Scanning ads directory: {ads_dir}")
         for filename in os.listdir(ads_dir):
-            if filename.endswith('.mp4'):
+            if filename.lower().endswith('.mp4'):
                 filepath = os.path.join(ads_dir, filename)
                 if os.path.isfile(filepath):
-                    video_files.append(('ads/' + filename, 1))
+                    video_files.append((f'ads/{filename}', 1))
                     print(f"Found ad: {filename}")
+
+    # Load videos from static/videos directory
+    static_videos_dir = 'static/videos'
+    if os.path.exists(static_videos_dir):
+        print(f"Scanning static videos directory: {static_videos_dir}")
+        for filename in os.listdir(static_videos_dir):
+            if filename.lower().endswith('.mp4'):
+                filepath = os.path.join(static_videos_dir, filename)
+                if os.path.isfile(filepath):
+                    video_files.append((f'static/videos/{filename}', 0))
+                    print(f"Found video in static: {filename}")
+
+    # Load ads from static/ads directory
+    static_ads_dir = 'static/ads'
+    if os.path.exists(static_ads_dir):
+        print(f"Scanning static ads directory: {static_ads_dir}")
+        for filename in os.listdir(static_ads_dir):
+            if filename.lower().endswith('.mp4'):
+                filepath = os.path.join(static_ads_dir, filename)
+                if os.path.isfile(filepath):
+                    video_files.append((f'static/ads/{filename}', 1))
+                    print(f"Found ad in static: {filename}")
+
+    # Load videos directly from static directory
+    static_dir = 'static'
+    if os.path.exists(static_dir):
+        print(f"Scanning static root directory: {static_dir}")
+        for filename in os.listdir(static_dir):
+            if filename.lower().endswith('.mp4'):
+                filepath = os.path.join(static_dir, filename)
+                if os.path.isfile(filepath):
+                    # Check if filename suggests it's an ad
+                    is_ad = 1 if filename.lower().startswith('ad') else 0
+                    video_files.append((f'static/{filename}', is_ad))
+                    print(f"Found video in static root: {filename} (is_ad: {is_ad})")
+    
+    print(f"Total videos found: {len(video_files)}")
     
     # Clear existing records to avoid duplicates
     cursor.execute('DELETE FROM records')
     
-    # Insert only existing videos into database
+    # Insert videos into database, avoiding duplicates
+    added_count = 0
     for filepath, is_ad in video_files:
-        cursor.execute('''
-            INSERT INTO records (filename, is_ad, total_likes) 
-            VALUES (?, ?, 0)
-        ''', (filepath, is_ad))
-        print(f"Added to database: {filepath} (is_ad: {is_ad})")
+        try:
+            cursor.execute('''
+                INSERT OR IGNORE INTO records (filename, is_ad, total_likes) 
+                VALUES (?, ?, 0)
+            ''', (filepath, is_ad))
+            
+            # Check if the insert was successful
+            if cursor.rowcount > 0:
+                added_count += 1
+                print(f"Added to database: {filepath} (is_ad: {is_ad})")
+            else:
+                print(f"Skipped duplicate: {filepath}")
+        except sqlite3.Error as e:
+            print(f"Error inserting {filepath}: {e}")
 
     conn.commit()
     conn.close()
-    print(f"Loaded {len(video_files)} videos total")
+    print(f"Successfully loaded {added_count} videos into database")
+    return added_count
 
 # Routes
 @app.route('/')
@@ -86,11 +136,23 @@ def index():
 
 @app.route('/videos/<filename>')
 def serve_video(filename):
-    return send_from_directory('static/videos', filename)
+    # Try videos directory first, then static/videos
+    if os.path.exists(os.path.join('videos', filename)):
+        return send_from_directory('videos', filename)
+    elif os.path.exists(os.path.join('static/videos', filename)):
+        return send_from_directory('static/videos', filename)
+    else:
+        return "Video not found", 404
 
 @app.route('/ads/<filename>')
 def serve_ad(filename):
-    return send_from_directory('static/ads', filename)
+    # Try ads directory first, then static/ads
+    if os.path.exists(os.path.join('ads', filename)):
+        return send_from_directory('ads', filename)
+    elif os.path.exists(os.path.join('static/ads', filename)):
+        return send_from_directory('static/ads', filename)
+    else:
+        return "Ad not found", 404
 
 @app.route('/static/<path:filename>')
 def serve_static(filename):
@@ -194,40 +256,6 @@ def toggle_like():
         print(f"Error in toggle_like: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/stats')
-def get_stats():
-    conn = sqlite3.connect('likes.db')
-    cursor = conn.cursor()
-    
-    # Get total likes on advertisement videos only
-    cursor.execute('SELECT SUM(total_likes) FROM records WHERE is_ad = 1')
-    ad_likes = cursor.fetchone()[0] or 0
-    
-    # Get total unique users who liked ads
-    cursor.execute('''
-        SELECT COUNT(DISTINCT user_id) FROM user_likes 
-        JOIN records ON user_likes.video_id = records.id 
-        WHERE records.is_ad = 1
-    ''')
-    unique_users_liked = cursor.fetchone()[0] or 0
-    
-    # Get ad videos with their like counts
-    cursor.execute('''
-        SELECT r.filename, r.total_likes
-        FROM records r
-        WHERE r.is_ad = 1 
-        ORDER BY r.total_likes DESC
-    ''')
-    ad_videos = cursor.fetchall()
-    
-    conn.close()
-    
-    return jsonify({
-        'total_ad_likes': ad_likes,
-        'unique_users_liked_ads': unique_users_liked,
-        'ad_videos': [{'filename': v[0], 'likes': v[1]} for v in ad_videos]
-    })
-
 @app.route('/admin')
 def admin():
     return '''
@@ -247,11 +275,16 @@ def admin():
             .refresh-btn { background: #4444ff; color: white; border: none; border-radius: 3px; }
             .refresh-btn:hover { background: #0000cc; }
             .status { margin: 10px 0; padding: 10px; background: #e6f3ff; border-radius: 3px; }
+            .summary { background: #e6ffe6; padding: 15px; margin: 10px 0; border-radius: 5px; }
         </style>
     </head>
     <body>
         <h1>Video Website Admin</h1>
         <div class="status" id="status">Loading...</div>
+        
+        <div class="summary" id="summary">
+            Loading summary...
+        </div>
         
         <button class="refresh-btn" onclick="loadStats()">Refresh Stats</button>
         <button class="reset-btn" onclick="resetStats()">Reset All Stats</button>
@@ -272,17 +305,24 @@ def admin():
                 fetch('/api/stats')
                     .then(response => response.json())
                     .then(data => {
+                        document.getElementById('summary').innerHTML = `
+                            <h2>Summary</h2>
+                            <p><strong>Total Videos:</strong> ${data.total_videos}</p>
+                            <p><strong>Total Ads:</strong> ${data.total_ads}</p>
+                            <p><strong>Total Items:</strong> ${data.total_videos + data.total_ads}</p>
+                        `;
+                        
                         document.getElementById('stats').innerHTML = `
                             <h2>Advertisement Statistics</h2>
                             <p><strong>Total Likes on Ads:</strong> ${data.total_ad_likes}</p>
                             <p><strong>Unique Users Who Liked Ads:</strong> ${data.unique_users_liked_ads}</p>
                             <h3>Ad Performance:</h3>
-                            ${data.ad_videos.map(ad => `
+                            ${data.ad_videos.length > 0 ? data.ad_videos.map(ad => `
                                 <div style="margin: 10px 0; padding: 10px; background: #fff; border-radius: 3px;">
                                     <strong>${ad.filename}</strong><br>
                                     Likes: ${ad.likes}
                                 </div>
-                            `).join('')}
+                            `).join('') : '<p>No ads found</p>'}
                         `;
                         
                         document.getElementById('status').innerHTML = `
@@ -302,16 +342,18 @@ def admin():
                 fetch('/api/videos')
                     .then(response => response.json())
                     .then(videos => {
-                        const videoListHTML = videos.map(video => `
-                            <div class="video-item ${video.is_ad ? 'ad-video' : ''}">
-                                <strong>${video.filename}</strong> 
-                                ${video.is_ad ? '(Advertisement)' : '(Regular)'} 
-                                - ${video.total_likes} likes
-                            </div>
-                        `).join('');
+                        const regularVideos = videos.filter(v => !v.is_ad);
                         
-                        document.getElementById('videoList').innerHTML = 
-                            `<h2>All Videos (${videos.length} total)</h2>` + videoListHTML;
+                        const videoListHTML = `
+                            <h2>All Videos (${regularVideos.length} total)</h2>
+                            ${regularVideos.map(video => `
+                                <div class="video-item">
+                                    <strong>${video.filename}</strong> - ${video.total_likes} likes
+                                </div>
+                            `).join('')}
+                        `;
+                        
+                        document.getElementById('videoList').innerHTML = videoListHTML;
                     })
                     .catch(error => {
                         console.error('Error loading videos:', error);
@@ -341,6 +383,7 @@ def admin():
                         .then(response => response.json())
                         .then(data => {
                             alert(data.message);
+                            loadStats();
                             loadVideos();
                         })
                         .catch(error => {
@@ -353,11 +396,11 @@ def admin():
             function startPolling() {
                 if (!isPolling) {
                     isPolling = true;
-                    // Poll every 2 seconds for real-time updates
+                    // Poll every 5 seconds for real-time updates
                     setInterval(() => {
                         loadStats();
                         loadVideos();
-                    }, 2000);
+                    }, 5000);
                 }
             }
             
@@ -396,17 +439,85 @@ def reset_stats():
 def refresh_videos():
     """Refresh video list from file system"""
     try:
-        load_videos()
-        return jsonify({'message': 'Video list refreshed successfully'})
+        count = load_videos()
+        return jsonify({'message': f'Video list refreshed successfully. Loaded {count} videos.'})
     except Exception as e:
         print(f"Error refreshing videos: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+# Add this route to handle videos directly in static folder
+@app.route('/<filename>')
+def serve_root_video(filename):
+    """Serve video files directly from static directory"""
+    if filename.endswith('.mp4'):
+        return send_from_directory('static', filename)
+    return "File not found", 404
+
+@app.route('/api/stats')
+def get_stats():
+    """Get statistics for admin panel"""
+    try:
+        conn = sqlite3.connect('likes.db')
+        cursor = conn.cursor()
+        
+        # Get total videos and ads count
+        cursor.execute('SELECT COUNT(*) FROM records WHERE is_ad = 0')
+        total_videos = cursor.fetchone()[0]
+        
+        cursor.execute('SELECT COUNT(*) FROM records WHERE is_ad = 1')
+        total_ads = cursor.fetchone()[0]
+        
+        # Get total likes on ads
+        cursor.execute('SELECT SUM(total_likes) FROM records WHERE is_ad = 1')
+        result = cursor.fetchone()
+        total_ad_likes = result[0] if result[0] else 0
+        
+        # Get unique users who liked ads
+        cursor.execute('''
+            SELECT COUNT(DISTINCT user_id) 
+            FROM user_likes 
+            JOIN records ON user_likes.video_id = records.id 
+            WHERE records.is_ad = 1
+        ''')
+        unique_users_liked_ads = cursor.fetchone()[0]
+        
+        # Get individual ad performance
+        cursor.execute('''
+            SELECT filename, total_likes 
+            FROM records 
+            WHERE is_ad = 1 
+            ORDER BY total_likes DESC
+        ''')
+        ad_videos = []
+        for row in cursor.fetchall():
+            ad_videos.append({
+                'filename': row[0],
+                'likes': row[1]
+            })
+        
+        conn.close()
+        
+        stats = {
+            'total_videos': total_videos,
+            'total_ads': total_ads,
+            'total_ad_likes': total_ad_likes,
+            'unique_users_liked_ads': unique_users_liked_ads,
+            'ad_videos': ad_videos
+        }
+        
+        print(f"Stats returned: {stats}")
+        return jsonify(stats)
+        
+    except Exception as e:
+        print(f"Error in get_stats: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+    
 if __name__ == '__main__':
     init_db()
-    load_videos()
+    video_count = load_videos()
+    print(f"Database initialized with {video_count} videos")
     print("Starting server...")
     print("Main site: http://localhost:8000")
     print("Admin panel: http://localhost:8000/admin")
     print("To reset database completely, delete 'likes.db' file before running")
-    app.run(debug=True, host='0.0.0.0', port=8000)
+    app.run(debug=True, host='0.0.0.0', port=8000)  
