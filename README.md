@@ -30,8 +30,8 @@ npm install
 ## Getting Started
 1. Clone the repository:
     ```bash
-    git clone https://github.com/your-username/video-survey-platform.git
-    cd video-survey-platform
+    git clone https://github.com/your-username/smadvertisingresearch.git
+    cd smadvertisingresearch
     ```
 
 2. Install dependencies:
