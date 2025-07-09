@@ -334,7 +334,7 @@ def admin():
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Admin Dashboard</title>
+        <title>Admin Dashboard (Control)</title>
         <style>
             body { font-family: Arial, sans-serif; margin: 20px; }
             .stats { background: #f0f0f0; padding: 20px; margin: 20px 0; border-radius: 5px; }
