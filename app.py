@@ -147,7 +147,7 @@ def load_videos():
     return added_count
 
 def create_video_sequence():
-    """Create a sequence following the pattern: 2 videos, 1 ad, repeat"""
+    """Create a sequence following the pattern: 4 videos, 1 ad, repeat"""
     conn = sqlite3.connect('likes.db')
     cursor = conn.cursor()
     
@@ -179,15 +179,15 @@ def create_video_sequence():
     random.shuffle(video_list)
     random.shuffle(ad_list)
     
-    # Create the sequence: 2 videos, 1 ad, repeat
+    # Create the sequence: 4 videos, 1 ad, repeat
     sequence = []
     video_index = 0
     ad_index = 0
     
     while video_index < len(video_list) or ad_index < len(ad_list):
-        # Add 2 videos
+        # Add 4 videos
         videos_added = 0
-        while videos_added < 2 and video_index < len(video_list):
+        while videos_added < 4 and video_index < len(video_list):
             sequence.append(video_list[video_index])
             video_index += 1
             videos_added += 1
@@ -355,7 +355,7 @@ def admin():
         </style>
     </head>
     <body>
-        <h1>Video Website Admin</h1>
+        <h1>Video Website Admin (Control)</h1>
         <div class="status" id="status">Loading...</div>
         
         <div class="summary" id="summary">
@@ -425,7 +425,7 @@ def admin():
                         const previewItems = sequence.slice(0, 20); // Show first 20 items
                         const sequenceHTML = `
                             <h2>Video Sequence Preview (First 20 items)</h2>
-                            <p><strong>Pattern:</strong> 2 Videos → 1 Ad → Repeat</p>
+                            <p><strong>Pattern:</strong> 4 Videos → 1 Ad → Repeat</p>
                             <div>
                                 ${previewItems.map((item, index) => `
                                     <span class="sequence-item sequence-${item.is_ad ? 'ad' : 'video'}" title="${item.filename}">
